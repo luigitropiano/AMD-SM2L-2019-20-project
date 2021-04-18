@@ -128,5 +128,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Custom Kaggle Dataset
+### Custom
+# Kaggle Dataset
 dataset/
+# Spark
+spark/
