@@ -73,8 +73,11 @@ class SparkRidgeRegression(object):
         # including the intercept
         A_biased = self.reg_factor * A
         prod1 = X_with_intercept.rdd.map(lambda example: inv_mul(example)).reduce(lambda x, y: x + y) + A_biased
+        print("end prod1 with shape: " + str(prod1.shape))
         inverse = np.linalg.inv(prod1)
+        print("end inverse computation")
         prod2 = X_with_intercept.rdd.map(lambda example: mat_mul(inverse, example)).reduce(lambda x, y: np.hstack((x, y)))
+        print("end prod2 with shape: " + str(prod2.shape))
         #prod1 = X_with_intercept.rdd.map(lambda example: self.inv_mul(example)).reduce(lambda x, y: x + y) + A_biased
         #self.inverse = np.linalg.inv(prod1)
         #prod2 = X_with_intercept.rdd.map(lambda example: self.mat_mul(example)).reduce(lambda x, y: np.hstack((x, y)))

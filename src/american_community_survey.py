@@ -1,4 +1,5 @@
-import os, utils, zipfile
+import os, zipfile
+from src import utils
 
 
 def load_dataset(DATA_PATH, spark):

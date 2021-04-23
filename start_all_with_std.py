@@ -43,17 +43,18 @@ categorical_ft = [var for var in df.columns if var not in skip_norm]
 
 df = df.fillna(0, numericals)
 
+'''
 utils.printNowToFile("starting STDSCALER")
 df = preprocessing.apply_stdscaler_to_df(df, numericals, 'scaledFeatures')
 utils.printNowToFile("end STDSCALER")
+'''
 
-"""
 utils.printNowToFile("starting OHE:")
-df = apply_ohe_to_df(df, categorical_ft)
+df = preprocessing.apply_ohe_to_df(df, categorical_ft)
 utils.printNowToFile("end OHE:")
-"""
 
-"""
+'''
+# CREATE VECTORASSEMBLER FOR PCA
 norm = df.select('scaledFeatures').schema.names
 cit_encode =df.select(df.colRegex("`.+(_encode)`")).schema.names
 features = cit_encode
@@ -62,25 +63,24 @@ df = VectorAssembler(inputCols=features, outputCol='vec_ohe', handleInvalid='kee
 encode = df.select(df.colRegex("vec_ohe")).schema.names
 features_end = norm + encode
 df = VectorAssembler(inputCols=features_end, outputCol='features_', handleInvalid='keep').transform(df)
-"""
+'''
 
-"""
 # STD SU TUTTE
 cit_encode =df.select(df.colRegex("`.+(_encode)`")).schema.names
-num_ohe = numerical + cit_encode
+num_ohe = numericals + cit_encode
 
 utils.printNowToFile("starting STDSCALER on all")
 df = preprocessing.apply_stdscaler_to_df(df, inputCols=num_ohe, outputCol='scaledFeatures')
 utils.printNowToFile("end STDSCALER on all")
 
+'''
 # PCA
 utils.printNowToFile("starting PCA:")
 df = preprocessing.apply_pca_to_df(df, inputCols='', outputCol='')
 utils.printNowToFile("after PCA:")
-
+'''
 
 #printToFile('len: {0}'.format(len(df_pca.select("features_final").take(1)[0][0])))
-"""
 
 #df_pers = df_pca.persist(StorageLevel.MEMORY_AND_DISK)
 df_pers = df.persist(StorageLevel.MEMORY_AND_DISK)
