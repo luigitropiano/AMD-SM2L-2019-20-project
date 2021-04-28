@@ -86,9 +86,9 @@ utils.printNowToFile("after PCA:")
 df_pers = df.persist(StorageLevel.MEMORY_AND_DISK)
 
 #( train_set, test_set, val_set ) = df_pers.randomSplit([0.7, 0.2, 0.1])
-( train_set, test_set ) = df_pers.randomSplit([0.8, 0.2])
+( train_set, test_set ) = df_pers.randomSplit([0.7, 0.3])
 
-#train_set = train_set.repartition(8000)
+#train_set = train_set.repartition(1000)
 
 utils.printNowToFile("starting SparkRidgeRegression:")
 

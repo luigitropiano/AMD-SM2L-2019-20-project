@@ -38,6 +38,19 @@ def r2(predictions):
     residual_sum_squares = predictions.rdd.map(lambda t: squared_error(*t)).sum()
     return 1 - (residual_sum_squares / sum_squares)
 
+
+def map_row(example):
+    row = example.features_final.toArray()
+    return [((x, y), row[x]*row[y]) for x in range(len(row)) for y in range(len(row))]
+
+def spark_to_numpy(reduce_by_key_result):
+    result = np.array([])
+    for ((k1, k2), v) in sorted(reduce_by_key_result):
+        result = np.append(result, v)
+
+    size = int(np.sqrt(len(result)))
+    return result.reshape(size,size)
+
 class SparkRidgeRegression(object):
     def __init__(self, reg_factor):
         self.reg_factor = reg_factor
@@ -72,7 +85,11 @@ class SparkRidgeRegression(object):
         # We create a bias term corresponding to alpha for each column of X not
         # including the intercept
         A_biased = self.reg_factor * A
-        prod1 = X_with_intercept.rdd.map(lambda example: inv_mul(example)).reduce(lambda x, y: x + y) + A_biased
+
+        prod1 = X_with_intercept.rdd.flatMap(lambda example: map_row(example)).reduceByKey(lambda x, y: x + y).collect()
+        prod1 = spark_to_numpy(prod1) + A_biased
+
+        #prod1 = X_with_intercept.rdd.map(lambda example: inv_mul(example)).reduce(lambda x, y: x + y) + A_biased
         print("end prod1 with shape: " + str(prod1.shape))
         inverse = np.linalg.inv(prod1)
         print("end inverse computation")
