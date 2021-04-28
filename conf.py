@@ -28,16 +28,19 @@ def load_conf():
     #    #('spark.worker.resourcesFile','./resources.txt')
     #]
     configArray = [
-        ('spark.driver.memory','9g'),
-        ('spark.executor.memory', '9g'), 
-        ('spark.executor.cores', 4), 
-        ('spark.driver.cores', 1), 
-        ('spark.cores.max', 4),
-        ("spark.driver.maxResultSize", "12g"),
-        ("spark.sql.shuffle.partitions", "50")
+#        ('spark.cores.max', 2),
+#        ('spark.executor.cores', 2),
+        ('spark.executor.memory', '11g'),
+#        ('spark.driver.cores', 2),
+        ('spark.driver.memory','11g'),
+        ("spark.driver.maxResultSize", "12g")
+#        ("spark.sql.shuffle.partitions", "1000"),
+#        ("spark.default.parallelism", "1"),
+        ('spark.local.dir', './spark_tmp')
+#        ("spark.python.worker.reuse", False)
     ]
     
-    config = pyspark.SparkConf().setMaster("local[4]").setAll(configArray)
+    config = pyspark.SparkConf().setMaster("local[5]").setAll(configArray)
     #config = pyspark.SparkConf().setAll(configArray)
     
     spark = SparkSession.builder.config(conf=config).getOrCreate()
