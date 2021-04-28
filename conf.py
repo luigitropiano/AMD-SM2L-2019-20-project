@@ -33,7 +33,7 @@ def load_conf():
         ('spark.executor.memory', '11g'),
 #        ('spark.driver.cores', 2),
         ('spark.driver.memory','11g'),
-        ("spark.driver.maxResultSize", "12g")
+        ("spark.driver.maxResultSize", "12g"),
 #        ("spark.sql.shuffle.partitions", "1000"),
 #        ("spark.default.parallelism", "1"),
         ('spark.local.dir', './spark_tmp')
