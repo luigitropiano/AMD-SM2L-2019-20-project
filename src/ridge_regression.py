@@ -12,14 +12,6 @@ def add_interceptor(v):
         return v
     return DenseVector(np.append(np.ones(1), v))
 
-def inv_mul(example):
-    row = DenseVector(example.features_final).toArray()[np.newaxis]
-    return row.T @ row
-
-def mat_mul(inverse, example):
-    row = DenseVector(example.features_final).toArray()[np.newaxis]
-    return inverse @ row.T
-
 def squared_error(target, prediction):
     return (target - prediction) ** 2 # power of 2
 
@@ -38,10 +30,24 @@ def r2(predictions):
     residual_sum_squares = predictions.rdd.map(lambda t: squared_error(*t)).sum()
     return 1 - (residual_sum_squares / sum_squares)
 
+def inv_mul(example):
+    row = example.features_final.toArray()[np.newaxis]
+    return row.T @ row
 
 def map_row(example):
     row = example.features_final.toArray()
     return [((x, y), row[x]*row[y]) for x in range(len(row)) for y in range(len(row))]
+
+def prod_inv_row(inverse, example):
+    value, key = example
+    row = value.features_final.toArray()[np.newaxis]
+    product = inverse @ row.T
+    return (key, product)
+
+def prod_join(example):
+    key, value = example
+    v1, v2 = value
+    return (v1 * v2)
 
 def spark_to_numpy(reduce_by_key_result):
     result = np.array([])
@@ -68,11 +74,9 @@ class SparkRidgeRegression(object):
         dot_prod_udf = F.udf(lambda example: float(thetas.dot(example)), DoubleType())
         examples = examples.withColumn('features_final', add_interceptor('features_final'))
         return examples.withColumn('new_column', dot_prod_udf('features_final'))
-    
-    
+
     def fit(self, X):
         X_with_intercept = X.withColumn('features_final', add_interceptor('features_final'))
-        self.y = np.array(X_with_intercept.select('PINCP').collect())
         features_number = len(X_with_intercept.take(1)[0].features_final)
     
         # Identity matrix of dimension compatible with our X_intercept Matrix
@@ -86,21 +90,19 @@ class SparkRidgeRegression(object):
         # including the intercept
         A_biased = self.reg_factor * A
 
+        #prod1 = X_with_intercept.rdd.map(lambda example: inv_mul(example)).reduce(lambda x, y: x + y) + A_biased
         prod1 = X_with_intercept.rdd.flatMap(lambda example: map_row(example)).reduceByKey(lambda x, y: x + y).collect()
         prod1 = spark_to_numpy(prod1) + A_biased
-
-        #prod1 = X_with_intercept.rdd.map(lambda example: inv_mul(example)).reduce(lambda x, y: x + y) + A_biased
         print("end prod1 with shape: " + str(prod1.shape))
+
         inverse = np.linalg.inv(prod1)
         print("end inverse computation")
-        prod2 = X_with_intercept.rdd.map(lambda example: mat_mul(inverse, example)).reduce(lambda x, y: np.hstack((x, y)))
-        print("end prod2 with shape: " + str(prod2.shape))
-        #prod1 = X_with_intercept.rdd.map(lambda example: self.inv_mul(example)).reduce(lambda x, y: x + y) + A_biased
-        #self.inverse = np.linalg.inv(prod1)
-        #prod2 = X_with_intercept.rdd.map(lambda example: self.mat_mul(example)).reduce(lambda x, y: np.hstack((x, y)))
+
+        prod2 = X_with_intercept.rdd.zipWithIndex().map(lambda example: prod_inv_row(inverse, example))
+        y_rdd = X_with_intercept.select('PINCP').rdd.zipWithIndex().map(lambda x: (x[1], x[0][0]))
+        thetas = prod2.join(y_rdd).map(lambda example: prod_join(example)).reduce(lambda x, y: x + y)
+
+        self.thetas = np.array(thetas).squeeze()
     
-        thetas = prod2 @ self.y
-    
-        self.thetas = thetas.squeeze()
         return self
 
