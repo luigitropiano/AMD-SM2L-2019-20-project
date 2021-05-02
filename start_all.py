@@ -47,17 +47,45 @@ df = Pipeline(stages = indexers + encoders).fit(df).transform(df)
 ( train_set, val_set, test_set ) = df_pers.randomSplit([0.6, 0.2, 0.2])
 
 ###############################################################
+
+from pyspark.ml import Pipeline
+from pyspark.ml.feature import PCA
+from pyspark.ml.feature import OneHotEncoder
+from pyspark.ml.feature import StringIndexer, VectorAssembler
+from pyspark.ml.feature import StandardScaler
+
+
 ordinals_input = [col+"_index" for col in ordinals]
 categoricals_input = [col+"_encode" for col in categoricals]
 
 stages = [
-    VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid = 'keep'),
-    VectorAssembler(inputCols = ordinals_input, outputCol = 'ordinals_vector', handleInvalid = 'keep'),
-    VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector', handleInvalid = 'keep'),
+    VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
+    VectorAssembler(inputCols = ordinals_input, outputCol = 'ordinals_vector'),
+    VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector'),
     StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_scaled', withStd=True, withMean=True),
     StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_scaled', withStd=True, withMean=True),
     StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_scaled', withStd=True, withMean=True)
 ]
+
+train_set = Pipeline(stages = stages).fit(train_set).transform(train_set)
+test_set = Pipeline(stages = stages).transform(test_set)
+val_set = Pipeline(stages = stages).transform(val_set)
+
+
+#Drop useless features
+useless_col = ordinals_input + categoricals_input + numericals
+
+train_set = drop(*useless_col)
+test_set = drop(*useless_col)
+val_set = drop(*useless_col)
+
+#Final features
+scaledFeatures = ['numericals_scaled', 'ordinals_scaled', 'categoricals_scaled']
+
+train_set = VectorAssembler(inputCols = scaledFeatures, outputCol = 'features_final').transform(train_set)
+test_set = VectorAssembler(inputCols = scaledFeatures, outputCol = 'features_final').transform(test_set)
+val_set = VectorAssembler(inputCols = scaledFeatures, outputCol = 'features_final').transform(val_set)
+
 ################################################################
 
 utils.printNowToFile("starting SparkRidgeRegression:")
