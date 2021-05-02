@@ -32,7 +32,7 @@ df = df.dropna(subset = target)
 skipping = ['PERNP', 'WAGP', 'HINCP', 'FINCP']
 numericals = ['SERIALNO', 'NP', 'BDSP', 'CONP', 'ELEP', 'FULP', 'INSP', 'MHP', 'MRGP', 'RMSP', 'RNTP', 'SMP', 'VALP', 'WATP', 'GRNTP', 'GRPIP', 'GASP', 'NOC', 'NPF', 'NRC', 'OCPIP', 'SMOCP', 'AGEP', 'INTP', 'JWMNP', 'OIP', 'PAP', 'RETP', 'SEMP', 'SSIP', 'SSP', 'WKHP', 'POVPIP']
 ordinals = ['AGS', 'YBL', 'MV', 'TAXP', 'CITWP', 'DRAT', 'JWRIP', 'MARHT', 'MARHYP', 'SCHG', 'SCHL', 'WKW', 'YOEP', 'DECADE', 'JWAP', 'JWDP', 'SFN']
-categoricals = [var for var in df.columns if var not in skipping + numericals + ordinals]
+categoricals = [col for col in df.columns if col not in skipping + numericals + ordinals]
 
 ################################################################
 
@@ -46,6 +46,18 @@ df = Pipeline(stages = indexers + encoders).fit(df).transform(df)
 # SPLIT DATASET
 ( train_set, val_set, test_set ) = df_pers.randomSplit([0.6, 0.2, 0.2])
 
+###############################################################
+ordinals_input = [col+"_index" for col in ordinals]
+categoricals_input = [col+"_encode" for col in categoricals]
+
+stages = [
+    VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid = 'keep'),
+    VectorAssembler(inputCols = ordinals_input, outputCol = 'ordinals_vector', handleInvalid = 'keep'),
+    VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector', handleInvalid = 'keep'),
+    StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_scaled', withStd=True, withMean=True),
+    StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_scaled', withStd=True, withMean=True),
+    StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_scaled', withStd=True, withMean=True)
+]
 ################################################################
 
 utils.printNowToFile("starting SparkRidgeRegression:")
