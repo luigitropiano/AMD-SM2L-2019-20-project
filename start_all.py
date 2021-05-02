@@ -7,7 +7,6 @@ from pyspark.storagelevel import StorageLevel
 ## CUSTOM IMPORT
 from src import ridge_regression as rr
 from src import american_community_survey as amc
-from src import preprocessing
 from src import utils
 import conf
 
@@ -38,14 +37,6 @@ categoricals = [col for col in df.columns if col not in skipping + numericals + 
 
 df = df.fillna(0, numericals)
 
-indexers = [StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals]
-encoders = [OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals]
-
-df = Pipeline(stages = indexers + encoders).fit(df).transform(df)
-
-# SPLIT DATASET
-( train_set, val_set, test_set ) = df_pers.randomSplit([0.6, 0.2, 0.2])
-
 ###############################################################
 
 from pyspark.ml import Pipeline
@@ -53,6 +44,17 @@ from pyspark.ml.feature import PCA
 from pyspark.ml.feature import OneHotEncoder
 from pyspark.ml.feature import StringIndexer, VectorAssembler
 from pyspark.ml.feature import StandardScaler
+
+indexers = [StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals]
+encoders = [OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals]
+
+df = Pipeline(stages = indexers + encoders).fit(df).transform(df)
+
+# SPLIT DATASET
+df = df.persist(StorageLevel.MEMORY_AND_DISK)
+( train_set, val_set, test_set ) = df.randomSplit([0.6, 0.2, 0.2])
+
+###############################################################
 
 
 ordinals_input = [col+"_index" for col in ordinals]
@@ -89,6 +91,8 @@ val_set = VectorAssembler(inputCols = scaledFeatures, outputCol = 'features_fina
 ################################################################
 
 utils.printNowToFile("starting SparkRidgeRegression:")
+
+train_set = train_set.persist(StorageLevel.DISK_ONLY)
 
 srr = rr.SparkRidgeRegression(reg_factor=0.1)
 #train_set = train_set.withColumn('features_final', train_set.scaledFeatures)
