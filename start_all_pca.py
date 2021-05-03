@@ -74,7 +74,7 @@ stages = [
     VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector'),
     StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_scaled', withStd=True, withMean=True),
     StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_scaled', withStd=True, withMean=True),
-    StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_scaled', withStd=True, withMean=True)
+    StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_scaled', withStd=True, withMean=True),
     VectorAssembler(inputCols = scaledFeatures, outputCol = 'scaledFeatures'),
     PCA(k=75, inputCol='scaledFeatures', outputCol='features_final')
 ]
