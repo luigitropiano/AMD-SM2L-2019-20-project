@@ -79,13 +79,16 @@ val_set = pipeline.transform(val_set)
 
 
 #Drop useless features
+utils.printNowToFile("dropping useless columns:")
 useless_col = ordinals_input + categoricals_input + numericals
 
 train_set = train_set.drop(*useless_col)
 test_set = test_set.drop(*useless_col)
 val_set = val_set.drop(*useless_col)
 
+
 #Final features
+utils.printNowToFile("assembling final vector:")
 scaledFeatures = ['numericals_scaled', 'ordinals_scaled', 'categoricals_scaled']
 
 train_set = VectorAssembler(inputCols = scaledFeatures, outputCol = 'features_final').transform(train_set)
