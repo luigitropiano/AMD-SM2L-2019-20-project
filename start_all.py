@@ -45,10 +45,10 @@ from pyspark.ml.feature import OneHotEncoder
 from pyspark.ml.feature import StringIndexer, VectorAssembler
 from pyspark.ml.feature import StandardScaler
 
+utils.printNowToFile("starting StringIndexer + OneHotEncoder pipeline:")
+
 indexers = [StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals]
 encoders = [OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals]
-
-utils.printNowToFile("starting StringIndexer + OneHotEncoder pipeline:")
 
 df = Pipeline(stages = indexers + encoders).fit(df).transform(df)
 
@@ -81,9 +81,9 @@ val_set = pipeline.transform(val_set)
 #Drop useless features
 useless_col = ordinals_input + categoricals_input + numericals
 
-train_set = drop(*useless_col)
-test_set = drop(*useless_col)
-val_set = drop(*useless_col)
+train_set = train_set.drop(*useless_col)
+test_set = test_set.drop(*useless_col)
+val_set = val_set.drop(*useless_col)
 
 #Final features
 scaledFeatures = ['numericals_scaled', 'ordinals_scaled', 'categoricals_scaled']
