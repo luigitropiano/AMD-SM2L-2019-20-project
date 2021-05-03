@@ -39,6 +39,8 @@ df = df.fillna(0, numericals)
 
 ###############################################################
 
+#ENCODING categorical features
+
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import PCA
 from pyspark.ml.feature import OneHotEncoder
@@ -57,11 +59,13 @@ df = df.persist(StorageLevel.MEMORY_AND_DISK)
 ( train_set, val_set, test_set ) = df.randomSplit([0.6, 0.2, 0.2])
 
 ###############################################################
+#STD SCALER 
 
 utils.printNowToFile("starting VectorAssembler + StandardScaler pipeline:")
 
 ordinals_input = [col+"_index" for col in ordinals]
 categoricals_input = [col+"_encode" for col in categoricals]
+
 scaledFeatures = ['numericals_scaled', 'ordinals_scaled', 'categoricals_scaled']
 
 stages = [
@@ -70,8 +74,9 @@ stages = [
     VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector'),
     StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_scaled', withStd=True, withMean=True),
     StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_scaled', withStd=True, withMean=True),
-    StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_scaled', withStd=True, withMean=True),
-    VectorAssembler(inputCols = scaledFeatures, outputCol = 'features_final')
+    StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_scaled', withStd=True, withMean=True)
+    VectorAssembler(inputCols = scaledFeatures, outputCol = 'scaledFeatures'),
+    PCA(k=75, inputCol='scaledFeatures', outputCol='features_final')
 ]
 
 pipeline = Pipeline(stages = stages).fit(train_set)
