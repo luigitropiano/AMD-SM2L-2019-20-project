@@ -28,73 +28,58 @@ df = amc.load_dataset(DATA_PATH, spark)
 target = 'PINCP'
 df = df.dropna(subset = target)
 
-
-#
-skip_list = ['PERNP', 'WAGP', 'HINCP', 'FINCP']
-
+# COLUMNS SETTING
+skipping = ['PERNP', 'WAGP', 'HINCP', 'FINCP']
 numericals = ['SERIALNO', 'NP', 'BDSP', 'CONP', 'ELEP', 'FULP', 'INSP', 'MHP', 'MRGP', 'RMSP', 'RNTP', 'SMP', 'VALP', 'WATP', 'GRNTP', 'GRPIP', 'GASP', 'NOC', 'NPF', 'NRC', 'OCPIP', 'SMOCP', 'AGEP', 'INTP', 'JWMNP', 'OIP', 'PAP', 'RETP', 'SEMP', 'SSIP', 'SSP', 'WKHP', 'POVPIP']
+#ordinals = ['AGS', 'YBL', 'MV', 'TAXP', 'CITWP', 'DRAT', 'JWRIP', 'MARHT', 'MARHYP', 'SCHG', 'SCHL', 'WKW', 'YOEP', 'DECADE', 'JWAP', 'JWDP', 'SFN']
+#categoricals = [col for col in df.columns if col not in skipping + numericals + ordinals]
 
-################################################################3
-
-#norm = ['features_norm', 'scaledFeatures']
-#skip_norm = numericals + target + norm
-skip_norm = numericals + [target]
-categorical_ft = [var for var in df.columns if var not in skip_norm]
+################################################################
 
 df = df.fillna(0, numericals)
 
-utils.printNowToFile("starting STDSCALER")
-df = preprocessing.apply_stdscaler_to_df(df, numericals, 'scaledFeatures')
-utils.printNowToFile("end STDSCALER")
+###############################################################
 
-"""
-utils.printNowToFile("starting OHE:")
-df = apply_ohe_to_df(df, categorical_ft)
-utils.printNowToFile("end OHE:")
-"""
-
-"""
-norm = df.select('scaledFeatures').schema.names
-cit_encode =df.select(df.colRegex("`.+(_encode)`")).schema.names
-features = cit_encode
-df = VectorAssembler(inputCols=features, outputCol='vec_ohe', handleInvalid='keep').transform(df)
-
-encode = df.select(df.colRegex("vec_ohe")).schema.names
-features_end = norm + encode
-df = VectorAssembler(inputCols=features_end, outputCol='features_', handleInvalid='keep').transform(df)
-"""
-
-"""
-# STD SU TUTTE
-cit_encode =df.select(df.colRegex("`.+(_encode)`")).schema.names
-num_ohe = numerical + cit_encode
-
-utils.printNowToFile("starting STDSCALER on all")
-df = preprocessing.apply_stdscaler_to_df(df, inputCols=num_ohe, outputCol='scaledFeatures')
-utils.printNowToFile("end STDSCALER on all")
-
-# PCA
-utils.printNowToFile("starting PCA:")
-df = preprocessing.apply_pca_to_df(df, inputCols='', outputCol='')
-utils.printNowToFile("after PCA:")
+from pyspark.ml import Pipeline
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.feature import StandardScaler
 
 
-#printToFile('len: {0}'.format(len(df_pca.select("features_final").take(1)[0][0])))
-"""
+# SPLIT DATASET
+df = df.persist(StorageLevel.MEMORY_AND_DISK)
+( train_set, val_set, test_set ) = df.randomSplit([0.6, 0.2, 0.2])
 
-#df_pers = df_pca.persist(StorageLevel.MEMORY_AND_DISK)
-df_pers = df.persist(StorageLevel.MEMORY_AND_DISK)
+###############################################################
 
-#( train_set, test_set, val_set ) = df_pers.randomSplit([0.7, 0.2, 0.1])
-( train_set, test_set ) = df_pers.randomSplit([0.7, 0.3])
+utils.printNowToFile("starting VectorAssembler + StandardScaler pipeline:")
 
-#train_set = train_set.repartition(1000)
+scaledFeatures = ['numericals_scaled'']
+
+stages = [
+    VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
+    StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_scaled', withStd=True, withMean=True),
+    VectorAssembler(inputCols = scaledFeatures, outputCol = 'features_final')
+]
+
+pipeline = Pipeline(stages = stages).fit(train_set)
+train_set = pipeline.transform(train_set)
+test_set = pipeline.transform(test_set)
+val_set = pipeline.transform(val_set)
+
+
+#Drop useless features
+utils.printNowToFile("dropping numericals columns:")
+
+train_set = train_set.drop(*numericals)
+test_set = test_set.drop(*numericals)
+val_set = val_set.drop(*numericals)
+
+################################################################
+
 
 utils.printNowToFile("starting SparkRidgeRegression:")
 
 srr = rr.SparkRidgeRegression(reg_factor=0.1)
-train_set = train_set.withColumn('features_final', train_set.scaledFeatures)
-test_set = test_set.withColumn('features_final', train_set.scaledFeatures)
 utils.printNowToFile("pre srr fit:")
 srr.fit(train_set)
 utils.printNowToFile("post srr fit:")
