@@ -48,6 +48,8 @@ from pyspark.ml.feature import StandardScaler
 indexers = [StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals]
 encoders = [OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals]
 
+utils.printNowToFile("starting StringIndexer + OneHotEncoder pipeline:")
+
 df = Pipeline(stages = indexers + encoders).fit(df).transform(df)
 
 # SPLIT DATASET
@@ -56,6 +58,7 @@ df = df.persist(StorageLevel.MEMORY_AND_DISK)
 
 ###############################################################
 
+utils.printNowToFile("starting VectorAssembler + StandardScaler pipeline:")
 
 ordinals_input = [col+"_index" for col in ordinals]
 categoricals_input = [col+"_encode" for col in categoricals]
@@ -69,9 +72,10 @@ stages = [
     StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_scaled', withStd=True, withMean=True)
 ]
 
-train_set = Pipeline(stages = stages).fit(train_set).transform(train_set)
-test_set = Pipeline(stages = stages).transform(test_set)
-val_set = Pipeline(stages = stages).transform(val_set)
+pipeline = Pipeline(stages = stages).fit(train_set)
+train_set = pipeline.transform(train_set)
+test_set = pipeline.transform(test_set)
+val_set = pipeline.transform(val_set)
 
 
 #Drop useless features
