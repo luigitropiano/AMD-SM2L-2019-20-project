@@ -42,7 +42,10 @@ class SparkRidgeRegression(object):
 
     def map_row(self, sample):
         row = sample
-        return [((x, y), row[x]*row[y]) for x in range(len(row)) for y in range(len(row))]
+        # return one key per row
+        return [(x, row[x]*row) for x in range(len(row))]
+        # return one key per value
+        #return [((x, y), row[x]*row[y]) for x in range(len(row)) for y in range(len(row))]
 
     def prod_inv_row(self, inverse, sample):
         value, key = sample
@@ -57,7 +60,10 @@ class SparkRidgeRegression(object):
     
     def spark_to_numpy(self, reduce_by_key_result):
         result = np.array([])
-        for ((k1, k2), v) in sorted(reduce_by_key_result):
+        # unpack one key per row
+        for (k, v) in sorted(reduce_by_key_result):
+        # unpack one key per value
+        #for ((k1, k2), v) in sorted(reduce_by_key_result):
             result = np.append(result, v)
     
         size = int(np.sqrt(len(result)))
@@ -99,6 +105,7 @@ class SparkRidgeRegression(object):
         # We create a bias term corresponding to alpha for each column of X not
         # including the intercept
         A_biased = self.reg_factor * A
+
 
         #prod1 = X.rdd.map(lambda row: add_intercept(row)).rdd.map(lambda row: inv_mul(row)).reduce(lambda x, y: x + y) + A_biased
         prod1 = X.rdd.map(lambda row: self.add_intercept(row)).flatMap(lambda row: self.map_row(row)).reduceByKey(lambda x, y: x + y, int(np.sqrt(features_number))).collect()
