@@ -47,10 +47,12 @@ from pyspark.ml.feature import StandardScaler
 
 utils.printNowToFile("starting StringIndexer + OneHotEncoder pipeline:")
 
-indexers = [StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals]
-encoders = [OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals]
+stages = [
+    StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals
+    OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals
+]
 
-df = Pipeline(stages = indexers + encoders).fit(df).transform(df)
+df = Pipeline(stages = stages).fit(df).transform(df)
 
 # SPLIT DATASET
 #df = df.persist(StorageLevel.MEMORY_AND_DISK)
