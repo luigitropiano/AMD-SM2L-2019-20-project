@@ -40,10 +40,6 @@ def load_dataset(DATA_PATH, spark):
     
     df = df.drop('PUMA')
     
-    #drop colonna totalmente null
-    vacs = ['VACS']
-    df = df.drop(*vacs)
-    
     weight_list_p = df.select(df.colRegex("`(pwgtp)+?.+`"))
     weight_list_h = df.select(df.colRegex("`(wgtp)+?.+`"))
     flag_list = df.select(df.colRegex("`(?!FOD1P|FOD2P|FIBEROP|FULP|FPARC|FINCP)(F)+?.+(P)`"))

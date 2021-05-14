@@ -43,7 +43,7 @@ from pyspark.ml import Pipeline
 from pyspark.ml.feature import PCA
 from pyspark.ml.feature import OneHotEncoder
 from pyspark.ml.feature import StringIndexer, VectorAssembler
-from pyspark.ml.feature import StandardScaler
+from pyspark.ml.feature import StandardScaler, RobustScaler, MinMaxScaler
 
 utils.printNowToFile("starting StringIndexer + OneHotEncoder pipeline:")
 
@@ -62,23 +62,57 @@ utils.printNowToFile("starting VectorAssembler + StandardScaler pipeline:")
 
 ordinals_input = [col+"_index" for col in ordinals]
 categoricals_input = [col+"_encode" for col in categoricals]
-scaledFeatures = ['numericals_scaled', 'ordinals_scaled', 'categoricals_scaled']
+scaledFeatures = ['numericals_std', 'ordinals_std', 'categoricals_std']
+minmaxFeatures = ['numericals_minmax', 'ordinals_minmax', 'categoricals_minmax']
+robustFeatures = ['numericals_robust', 'ordinals_robust', 'categoricals_robust']
 
-stages = [
+vector = [
     VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
     VectorAssembler(inputCols = ordinals_input, outputCol = 'ordinals_vector'),
-    VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector'),
-    StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_scaled', withStd=True, withMean=True),
-    StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_scaled', withStd=True, withMean=True),
-    StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_scaled', withStd=True, withMean=True),
-    VectorAssembler(inputCols = scaledFeatures, outputCol = 'features_final')
+    VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector')
 ]
 
-pipeline = Pipeline(stages = stages).fit(train_set)
-train_set = pipeline.transform(train_set)
-test_set = pipeline.transform(test_set)
-val_set = pipeline.transform(val_set)
+std_pipeline = [
+    StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_std', withStd=True, withMean=True),
+    StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_std', withStd=True, withMean=True),
+    StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_std', withStd=True, withMean=True),
+    VectorAssembler(inputCols = scaledFeatures, outputCol = 'features_std')
+]
 
+minmax_pipeline = [
+    MinMaxScaler(inputCol = 'numericals_vector', outputCol = 'numericals_minmax'),
+    MinMaxScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_minmax'),
+    MinMaxScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_minmax'),
+    VectorAssembler(inputCols = minmaxFeatures, outputCol = 'features_minmax')
+
+]
+
+robust_pipeline = [
+    RobustScaler(inputCol='numericals_vector', outputCol='numericals_robust', withScaling=True, withCentering=False, lower=0.25, upper=0.75),
+    RobustScaler(inputCol='ordinals_vector', outputCol='ordinals_robust', withScaling=True, withCentering=False, lower=0.25, upper=0.75),
+    RobustScaler(inputCol='categoricals_vector', outputCol='categoricals_robust', withScaling=True, withCentering=False, lower=0.25, upper=0.75),
+    VectorAssembler(inputCols = robustFeatures, outputCol = 'features_robust')
+]
+
+#pipeline = Pipeline(stages = vector + std_pipeline + minmax_pipeline + robust_pipeline).fit(train_set)
+
+pipeline1 = Pipeline(stages = vector + std_pipeline).fit(train_set)
+train_set = pipeline1.transform(train_set)
+test_set = pipeline1.transform(test_set)
+val_set = pipeline1.transform(val_set)
+utils.printNowToFile("end pipeline std")
+
+pipeline2 = Pipeline(stages = vector + minmax_pipeline).fit(train_set)
+train_set = pipeline2.transform(train_set)
+test_set = pipeline2.transform(test_set)
+val_set = pipeline2.transform(val_set)
+utils.printNowToFile("end pipeline min max")
+
+pipeline3 = Pipeline(stages = vector + robust_pipeline).fit(train_set)
+train_set = pipeline3.transform(train_set)
+test_set = pipeline3.transform(test_set)
+val_set = pipeline3.transform(val_set)
+utils.printNowToFile("end pipeline robust")
 
 #Drop useless features
 utils.printNowToFile("dropping useless columns:")
