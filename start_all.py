@@ -50,27 +50,30 @@ utils.printNowToFile("starting StringIndexer + OneHotEncoder pipeline:")
 indexers = [StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals]
 encoders = [OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals]
 
-df = Pipeline(stages = indexers + encoders).fit(df).transform(df)
-
-# SPLIT DATASET
-#df = df.persist(StorageLevel.MEMORY_AND_DISK)
-( train_set, val_set, test_set ) = df.randomSplit([0.6, 0.2, 0.2])
-
-###############################################################
-
-utils.printNowToFile("starting VectorAssembler + StandardScaler pipeline:")
 
 ordinals_input = [col+"_index" for col in ordinals]
 categoricals_input = [col+"_encode" for col in categoricals]
-scaledFeatures = ['numericals_std', 'ordinals_std', 'categoricals_std']
-minmaxFeatures = ['numericals_minmax', 'ordinals_minmax', 'categoricals_minmax']
-robustFeatures = ['numericals_robust', 'ordinals_robust', 'categoricals_robust']
 
 vector = [
     VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
     VectorAssembler(inputCols = ordinals_input, outputCol = 'ordinals_vector'),
     VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector')
 ]
+
+df = Pipeline(stages = indexers + encoders + vector).fit(df).transform(df)
+
+# SPLIT DATASET
+#df = df.persist(StorageLevel.MEMORY_AND_DISK)
+
+( train_set, val_set, test_set ) = df.randomSplit([0.6, 0.2, 0.2])
+
+###############################################################
+
+utils.printNowToFile("starting VectorAssembler + StandardScaler pipeline:")
+
+scaledFeatures = ['numericals_std', 'ordinals_std', 'categoricals_std']
+minmaxFeatures = ['numericals_minmax', 'ordinals_minmax', 'categoricals_minmax']
+robustFeatures = ['numericals_robust', 'ordinals_robust', 'categoricals_robust']
 
 std_pipeline = [
     StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_std', withStd=True, withMean=True),
@@ -88,27 +91,27 @@ minmax_pipeline = [
 ]
 
 robust_pipeline = [
-    RobustScaler(inputCol='numericals_vector', outputCol='numericals_robust', withScaling=True, withCentering=False, lower=0.25, upper=0.75),
-    RobustScaler(inputCol='ordinals_vector', outputCol='ordinals_robust', withScaling=True, withCentering=False, lower=0.25, upper=0.75),
-    RobustScaler(inputCol='categoricals_vector', outputCol='categoricals_robust', withScaling=True, withCentering=False, lower=0.25, upper=0.75),
+    RobustScaler(inputCol='numericals_vector', outputCol='numericals_robust', withScaling=True, withCentering=True, lower=0.25, upper=0.75),
+    RobustScaler(inputCol='ordinals_vector', outputCol='ordinals_robust', withScaling=True, withCentering=True, lower=0.25, upper=0.75),
+    RobustScaler(inputCol='categoricals_vector', outputCol='categoricals_robust', withScaling=True, withCentering=True, lower=0.25, upper=0.75),
     VectorAssembler(inputCols = robustFeatures, outputCol = 'features_robust')
 ]
 
 #pipeline = Pipeline(stages = vector + std_pipeline + minmax_pipeline + robust_pipeline).fit(train_set)
 
-pipeline1 = Pipeline(stages = vector + std_pipeline).fit(train_set)
+pipeline1 = Pipeline(stages = std_pipeline).fit(train_set)
 train_set = pipeline1.transform(train_set)
 test_set = pipeline1.transform(test_set)
 val_set = pipeline1.transform(val_set)
 utils.printNowToFile("end pipeline std")
 
-pipeline2 = Pipeline(stages = vector + minmax_pipeline).fit(train_set)
+pipeline2 = Pipeline(stages = minmax_pipeline).fit(train_set)
 train_set = pipeline2.transform(train_set)
 test_set = pipeline2.transform(test_set)
 val_set = pipeline2.transform(val_set)
 utils.printNowToFile("end pipeline min max")
 
-pipeline3 = Pipeline(stages = vector + robust_pipeline).fit(train_set)
+pipeline3 = Pipeline(stages = robust_pipeline).fit(train_set)
 train_set = pipeline3.transform(train_set)
 test_set = pipeline3.transform(test_set)
 val_set = pipeline3.transform(val_set)
