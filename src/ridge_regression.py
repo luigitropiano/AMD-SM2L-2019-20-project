@@ -87,7 +87,7 @@ class SparkRidgeRegression(object):
         thetas = self.thetas
         dot_prod_udf = F.udf(lambda example: float(thetas.dot(example)), DoubleType())
         examples = examples.withColumn('features_final', add_intercept_udf('features_final'))
-        return examples.withColumn('new_column', dot_prod_udf('features_final'))
+        return examples.withColumn('target_predictions', dot_prod_udf('features_final'))
 
 
     def fit(self, X):
