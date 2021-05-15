@@ -108,25 +108,7 @@ robust_pipeline = [
     VectorAssembler(inputCols = robustFeatures, outputCol = 'features_robust')
 ]
 
-#pipeline = Pipeline(stages = vector + std_pipeline + minmax_pipeline + robust_pipeline).fit(train_set)
-
-pipeline1 = Pipeline(stages = std_pipeline).fit(train_set)
-train_set = pipeline1.transform(train_set)
-test_set = pipeline1.transform(test_set)
-val_set = pipeline1.transform(val_set)
-utils.printNowToFile("end pipeline std")
-
-pipeline2 = Pipeline(stages = minmax_pipeline).fit(train_set)
-train_set = pipeline2.transform(train_set)
-test_set = pipeline2.transform(test_set)
-val_set = pipeline2.transform(val_set)
-utils.printNowToFile("end pipeline min max")
-
-pipeline3 = Pipeline(stages = robust_pipeline).fit(train_set)
-train_set = pipeline3.transform(train_set)
-test_set = pipeline3.transform(test_set)
-val_set = pipeline3.transform(val_set)
-utils.printNowToFile("end pipeline robust")
+pipeline = Pipeline(stages = std_pipeline).fit(train_set)
 
 ################################################################
 #TUNING WITH K-FOLD CROSS VALIDATION
