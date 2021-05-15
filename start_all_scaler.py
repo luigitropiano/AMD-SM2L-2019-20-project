@@ -174,7 +174,7 @@ utils.printNowToFile('selected alpha: ' + str(best_alpha))
 
 utils.printNowToFile("starting SparkRidgeRegression:")
 
-#persist train_set on disk
+#persist train_set on disk memory
 train_set = train_set.persist(StorageLevel.DISK_ONLY)
 
 #Fit ridge regression model on train set
