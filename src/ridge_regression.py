@@ -31,8 +31,8 @@ class SparkRidgeRegression(object):
         residual_sum_squares = predictions.rdd.map(lambda t: self.squared_error(*t)).sum()
         return 1 - (residual_sum_squares / sum_squares)
 
-    def add_intercept(self, sample):
-        row = sample.features_final.toArray()
+    def add_intercept(self, sample, column_name):
+        row = sample[column_name].toArray()
         row = np.insert(row, 0, 1)
         return row
 
@@ -65,7 +65,7 @@ class SparkRidgeRegression(object):
         # unpack one key per value
         #for ((k1, k2), v) in sorted(reduce_by_key_result):
             result = np.append(result, v)
-    
+
         size = int(np.sqrt(len(result)))
         return result.reshape(size,size)
 
@@ -83,17 +83,17 @@ class SparkRidgeRegression(object):
     #    # apply our function to RDD
     #    return examples.rdd.map(lambda row: add_intercept(row)).map(lambda row: thetas.dot(row)).collect()
 
-    def predict_many(self, examples):
+    def predict_many(self, examples, features_column, new_column):
         thetas = self.thetas
         dot_prod_udf = F.udf(lambda example: float(thetas.dot(example)), DoubleType())
-        examples = examples.withColumn('features_final', add_intercept_udf('features_final'))
-        return examples.withColumn('new_column', dot_prod_udf('features_final'))
+        examples = examples.withColumn(features_column, add_intercept_udf(features_column))
+        return examples.withColumn(new_column, dot_prod_udf(features_column))
 
 
-    def fit(self, X):
+    def fit(self, X, features_column):
 
         # Count number of columns and add 1 for the intercept term
-        features_number = len(X.take(1)[0].features_final) + 1
+        features_number = len(X.take(1)[0][features_column]) + 1
 
         # Identity matrix of dimension compatible with our X_intercept Matrix
         A = np.identity(features_number)
@@ -107,19 +107,19 @@ class SparkRidgeRegression(object):
         A_biased = self.reg_factor * A
 
 
-        #prod1 = X.rdd.map(lambda row: add_intercept(row)).rdd.map(lambda row: inv_mul(row)).reduce(lambda x, y: x + y) + A_biased
-        prod1 = X.rdd.map(lambda row: self.add_intercept(row)).flatMap(lambda row: self.map_row(row)).reduceByKey(lambda x, y: x + y, int(np.sqrt(features_number))).collect()
+        #prod1 = X.rdd.map(lambda row: add_intercept(row, features_column)).rdd.map(lambda row: inv_mul(row)).reduce(lambda x, y: x + y) + A_biased
+        prod1 = X.rdd.map(lambda row: self.add_intercept(row, features_column)).flatMap(lambda row: self.map_row(row)).reduceByKey(lambda x, y: x + y, int(np.sqrt(features_number))).collect()
         prod1 = self.spark_to_numpy(prod1) + A_biased
         print("end prod1 with shape: " + str(prod1.shape))
 
         inverse = np.linalg.inv(prod1)
         print("end inverse computation")
 
-        prod2 = X.rdd.map(lambda row: self.add_intercept(row)).zipWithIndex().map(lambda row: self.prod_inv_row(inverse, row))
+        prod2 = X.rdd.map(lambda row: self.add_intercept(row, features_column)).zipWithIndex().map(lambda row: self.prod_inv_row(inverse, row))
         y_rdd = X.select('PINCP').rdd.zipWithIndex().map(lambda x: (x[1], x[0][0]))
         thetas = prod2.join(y_rdd).map(lambda row: self.prod_join(row)).reduce(lambda x, y: x + y)
 
         self.thetas = np.array(thetas).squeeze()
-    
+
         return self
 
