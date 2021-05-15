@@ -23,24 +23,24 @@ df = amc.load_dataset(DATA_PATH, spark)
 ###############################################################
 ## PREPROCESSING: FEATURES ENGINEERING
 
-# name of the target column
+# name of the target column and emrove all the rows where 'PINCP' is null
 target = 'PINCP'
 df = df.dropna(subset = target)
 
 # COLUMNS SETTING
 skipping = ['PERNP', 'WAGP', 'HINCP', 'FINCP']
-numericals = ['SERIALNO', 'NP', 'BDSP', 'CONP', 'ELEP', 'FULP', 'INSP', 'MHP', 'MRGP', 'RMSP', 'RNTP', 'SMP', 'VALP', 'WATP', 'GRNTP', 'GRPIP', 'GASP', 'NOC', 'NPF', 'NRC', 'OCPIP', 'SMOCP', 'AGEP', 'INTP', 'JWMNP', 'OIP', 'PAP', 'RETP', 'SEMP', 'SSIP', 'SSP', 'WKHP', 'POVPIP']
+numericals = ['NP', 'BDSP', 'CONP', 'ELEP', 'FULP', 'INSP', 'MHP', 'MRGP', 'RMSP', 'RNTP', 'SMP', 'VALP', 'WATP', 'GRNTP', 'GRPIP', 'GASP', 'NOC', 'NPF', 'NRC', 'OCPIP', 'SMOCP', 'AGEP', 'INTP', 'JWMNP', 'OIP', 'PAP', 'RETP', 'SEMP', 'SSIP', 'SSP', 'WKHP', 'POVPIP']
 ordinals = ['AGS', 'YBL', 'MV', 'TAXP', 'CITWP', 'DRAT', 'JWRIP', 'MARHT', 'MARHYP', 'SCHG', 'SCHL', 'WKW', 'YOEP', 'DECADE', 'JWAP', 'JWDP', 'SFN']
 categoricals = [col for col in df.columns if col not in skipping + numericals + ordinals + [target]]
 
 ################################################################
-
+#fill all null numericals value with 0
 df = df.fillna(0, numericals)
 
 ###############################################################
+#INDEXING AND ENCODING
 
 from pyspark.ml import Pipeline
-from pyspark.ml.feature import PCA
 from pyspark.ml.feature import OneHotEncoder
 from pyspark.ml.feature import StringIndexer, VectorAssembler
 from pyspark.ml.feature import StandardScaler, RobustScaler, MinMaxScaler
@@ -60,17 +60,25 @@ assemblers = [
 
 df = Pipeline(stages = indexers + encoders + assemblers).fit(df).transform(df)
 
+#Drop useless features
+utils.printNowToFile("dropping useless columns:")
+useless_col = ordinals_input + categoricals_input + numericals
+
+df = df.drop(*useless_col)
+
 # SPLIT DATASET
 #df = df.persist(StorageLevel.MEMORY_AND_DISK)
 
 ( train_set, test_set ) = df.randomSplit([0.7, 0.3])
 
 ###############################################################
+#SCALING
 
 utils.printNowToFile("starting scalers pipelines:")
 
 stdFeatures = ['numericals_std', 'ordinals_std', 'categoricals_std']
 
+#std scaler 
 std_pipeline = [
     StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_std', withStd=True, withMean=True),
     StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_std', withStd=True, withMean=True),
@@ -90,6 +98,8 @@ train_set = train_set.drop(*useless_col)
 test_set = test_set.drop(*useless_col)
 
 ################################################################
+#TUNING WITH K-FOLD CROSS VALIDATION
+utils.printNowToFile("starting CrossValidation:")
 
 from functools import reduce  # For Python 3.x
 from pyspark.sql import DataFrame

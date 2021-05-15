@@ -20,7 +20,7 @@ def load_dataset(DATA_PATH, spark):
     df_h = spark.read.csv([DATA_PATH + f for f in hfiles], header = True, inferSchema = True)
 
     # drop columns in housing and person
-    dropping_list = ['PERNP', 'WAGP', 'HINCP', 'FINCP', 'RT', 'DIVISION', 'REGION', 'ADJINC', 'ADJHSG', 'WGTP', 'PWGTP', 'SPORDER' ]
+    dropping_list = ['PERNP', 'WAGP', 'HINCP', 'FINCP', 'RT', 'DIVISION', 'REGION', 'ADJINC', 'ADJHSG', 'WGTP', 'PWGTP', 'SPORDER', 'VACS' ]
     #
     join_list = ['SERIALNO', 'PUMA', 'ST']
 
@@ -44,6 +44,8 @@ def load_dataset(DATA_PATH, spark):
     vacs = ['VACS']
     df = df.drop(*vacs)
  
+    df = df.drop('SERIALNO')
+    
     weight_list_p = df.select(df.colRegex("`(pwgtp)+?.+`"))
     weight_list_h = df.select(df.colRegex("`(wgtp)+?.+`"))
     flag_list = df.select(df.colRegex("`(?!FOD1P|FOD2P|FIBEROP|FULP|FPARC|FINCP)(F)+?.+(P)`"))

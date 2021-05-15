@@ -89,7 +89,6 @@ class SparkRidgeRegression(object):
         examples = examples.withColumn(features_column, add_intercept_udf(features_column))
         return examples.withColumn(new_column, dot_prod_udf(features_column))
 
-
     def fit(self, X, features_column):
 
         # Count number of columns and add 1 for the intercept term
