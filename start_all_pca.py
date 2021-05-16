@@ -108,7 +108,7 @@ import numpy as np
 def unionAll(*dfs):
     return reduce(DataFrame.unionByName, dfs)
 
-features_columns = ['features_std']
+features_columns = ['features_final']
 for features_column in features_columns:
 
     utils.printNowToFile("starting CrossValidation for " + features_column + ":")
