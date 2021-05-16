@@ -44,42 +44,40 @@ from pyspark.ml import Pipeline
 from pyspark.ml.feature import OneHotEncoder
 from pyspark.ml.feature import StringIndexer, VectorAssembler
 from pyspark.ml.feature import StandardScaler, RobustScaler, MinMaxScaler
+from pyspark.sql.functions import rand
 
 utils.printNowToFile("starting StringIndexer + OneHotEncoder pipeline:")
 
-indexers = [StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals]
-encoders = [OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals]
-
-#list of features indexed and encoded
 ordinals_input = [col+"_index" for col in ordinals]
 categoricals_input = [col+"_encode" for col in categoricals]
 
-#vector assembler pipeline to create numerical, ordinals and categoricals vector input for scaler
-vector = [
+indexers = [StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals]
+encoders = [OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals]
+assemblers = [
     VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
     VectorAssembler(inputCols = ordinals_input, outputCol = 'ordinals_vector'),
     VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector')
 ]
 
-df = Pipeline(stages = indexers + encoders + vector).fit(df).transform(df)
+df = Pipeline(stages = indexers + encoders + assemblers).fit(df).transform(df)
 
 #Drop useless features
 utils.printNowToFile("dropping useless columns:")
-useless_col = ordinals_input + categoricals_input + numericals
+useless_col = numericals + ordinals_input + categoricals_input
 
 df = df.drop(*useless_col)
 
 # SPLIT DATASET
 #df = df.persist(StorageLevel.MEMORY_AND_DISK)
 
-( train_set, val_set, test_set ) = df.randomSplit([0.6, 0.2, 0.2])
+( train_set, test_set ) = df.orderBy(rand()).randomSplit([0.7, 0.3])
 
 ###############################################################
 #SCALING
 
-utils.printNowToFile("starting VectorAssembler + Scaler pipeline:")
+utils.printNowToFile("starting scalers pipelines:")
 
-scaledFeatures = ['numericals_std', 'ordinals_std', 'categoricals_std']
+stdFeatures = ['numericals_std', 'ordinals_std', 'categoricals_std']
 minmaxFeatures = ['numericals_minmax', 'ordinals_minmax', 'categoricals_minmax']
 robustFeatures = ['numericals_robust', 'ordinals_robust', 'categoricals_robust']
 
@@ -88,7 +86,7 @@ std_pipeline = [
     StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_std', withStd=True, withMean=True),
     StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_std', withStd=True, withMean=True),
     StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_std', withStd=True, withMean=True),
-    VectorAssembler(inputCols = scaledFeatures, outputCol = 'features_std')
+    VectorAssembler(inputCols = stdFeatures, outputCol = 'features_std')
 ]
 
 #min max scaler
@@ -97,7 +95,6 @@ minmax_pipeline = [
     MinMaxScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_minmax'),
     MinMaxScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_minmax'),
     VectorAssembler(inputCols = minmaxFeatures, outputCol = 'features_minmax')
-
 ]
 
 #robust scaler
@@ -110,95 +107,55 @@ robust_pipeline = [
 
 #pipeline = Pipeline(stages = vector + std_pipeline + minmax_pipeline + robust_pipeline).fit(train_set)
 
-pipeline1 = Pipeline(stages = std_pipeline).fit(train_set)
-train_set = pipeline1.transform(train_set)
-test_set = pipeline1.transform(test_set)
-val_set = pipeline1.transform(val_set)
+pipeline = Pipeline(stages = std_pipeline).fit(train_set)
+train_set = pipeline.transform(train_set)
+test_set = pipeline.transform(test_set)
 utils.printNowToFile("end pipeline std")
 
-pipeline2 = Pipeline(stages = minmax_pipeline).fit(train_set)
-train_set = pipeline2.transform(train_set)
-test_set = pipeline2.transform(test_set)
-val_set = pipeline2.transform(val_set)
+pipeline = Pipeline(stages = minmax_pipeline).fit(train_set)
+train_set = pipeline.transform(train_set)
+test_set = pipeline.transform(test_set)
 utils.printNowToFile("end pipeline min max")
 
-pipeline3 = Pipeline(stages = robust_pipeline).fit(train_set)
-train_set = pipeline3.transform(train_set)
-test_set = pipeline3.transform(test_set)
-val_set = pipeline3.transform(val_set)
+pipeline = Pipeline(stages = robust_pipeline).fit(train_set)
+train_set = pipeline.transform(train_set)
+test_set = pipeline.transform(test_set)
 utils.printNowToFile("end pipeline robust")
 
+#Drop useless features
+utils.printNowToFile("dropping useless columns:")
+useless_col = ['numericals_vector', 'ordinals_vector', 'categoricals_vector']
+train_set = train_set.drop(*useless_col)
+test_set = test_set.drop(*useless_col)
+
 ################################################################
-#TUNING WITH K-FOLD CROSS VALIDATION
-utils.printNowToFile("starting CrossValidation:")
+alpha = 0.1
 
-from functools import reduce  # For Python 3.x
-from pyspark.sql import DataFrame
-import numpy as np
+features_columns = ['features_std', 'features_minmax, features_robust']
+for features_column in features_columns:
 
-def unionAll(*dfs):
-    return reduce(DataFrame.unionByName, dfs)
+    utils.printNowToFile("starting SparkRidgeRegression:")
 
-#split train set in 5 fold
-fold_1, fold_2, fold_3, fold_4, fold_5 = train_set.randomSplit([0.2, 0.2, 0.2, 0.2, 0.2])
+    train_set = train_set.persist(StorageLevel.DISK_ONLY)
 
-scores_dict = {}
-folds = [fold_1, fold_2, fold_3, fold_4, fold_4]
+    utils.printNowToFile("pre srr fit:")
+    srr = rr.SparkRidgeRegression(reg_factor=alpha)
+    srr.fit(train_set, features_column)
+    utils.printNowToFile("post srr fit:")
 
-for alpha in [0.01, 0.1, 1]:
-    utils.printNowToFile('trying alpha = ' + str(alpha))
-    partial_scores = np.array([])
-    srrcv = rr.SparkRidgeRegression(reg_factor=alpha)
-    for fold in folds:
-        folds_to_merge = [f for f in folds if f != fold]
-        cv = unionAll(*folds_to_merge)
-        cv = cv.coalesce(100)
-        srrcv.fit(cv)
-        result = srrcv.predict_many(test_set)
-        partial_scores = np.append(partial_scores, srrcv.r2(result.select('PINCP', 'target_predictions')))
-    final_score = np.mean(partial_scores)
-    scores_dict[alpha] = final_score
+    result = srr.predict_many(test_set, features_column, 'new_column')
+    utils.printToFile('result: {0}'.format(srr.r2(result.select('PINCP', 'new_column'))))
 
-for k in scores_dict:
-    utils.printNowToFile('alpha ' + str(k) + ' - r2 score ' + str(scores_dict[k]))
+    utils.printNowToFile("starting linear transform:")
+    lin_reg = LinearRegression(standardization = False, featuresCol = features_column, labelCol='PINCP', maxIter=10, regParam=alpha, elasticNetParam=0.0, fitIntercept=True)
+    linear_mod = lin_reg.fit(train_set)
+    utils.printNowToFile("after linear transform:")
 
-#find best value for alpha
-best_alpha = max(scores_dict, key=scores_dict.get)
-utils.printNowToFile('selected alpha: ' + str(best_alpha))
-
-###############################################################
-#PREDICTION
-
-utils.printNowToFile("starting SparkRidgeRegression:")
-
-#persist train_set on disk memory
-train_set = train_set.persist(StorageLevel.DISK_ONLY)
-
-#Fit ridge regression model on train set
-
-srr = rr.SparkRidgeRegression(reg_factor=best_alpha)
-#train_set = train_set.withColumn('features_final', train_set.scaledFeatures)
-#test_set = test_set.withColumn('features_final', train_set.scaledFeatures)
-utils.printNowToFile("pre srr fit:")
-srr.fit(train_set)
-utils.printNowToFile("post srr fit:")
-
-#r2 score on test set
-result = srr.predict_many(test_set)
-utils.printToFile('result: {0}'.format(srr.r2(result.select('PINCP', 'target_predictions'))))
-
-#fit model with pyspark ridge regression
-lin_reg = LinearRegression(standardization = False, featuresCol = 'features_final', labelCol='PINCP', maxIter=10, regParam=best_alpha, elasticNetParam=0.0, fitIntercept=True)
-utils.printNowToFile("starting linear transform:")
-linear_mod = lin_reg.fit(train_set)
-utils.printNowToFile("after linear transform:")
-
-#r2 score on test set
-predictions = linear_mod.transform(test_set)
-y_true = predictions.select("PINCP").toPandas()
-y_pred = predictions.select("prediction").toPandas()
-r2_score = sklearn.metrics.r2_score(y_true, y_pred)
-utils.printToFile('r2_score before: {0}'.format(r2_score))
+    predictions = linear_mod.transform(test_set)
+    y_true = predictions.select("PINCP").toPandas()
+    y_pred = predictions.select("prediction").toPandas()
+    r2_score = sklearn.metrics.r2_score(y_true, y_pred)
+    utils.printToFile('r2_score before: {0}'.format(r2_score))
 
 '''
 predict_target = ['PINCP', 'new_column']

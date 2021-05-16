@@ -44,6 +44,7 @@ from pyspark.ml import Pipeline
 from pyspark.ml.feature import OneHotEncoder
 from pyspark.ml.feature import StringIndexer, VectorAssembler
 from pyspark.ml.feature import StandardScaler, RobustScaler, MinMaxScaler
+from pyspark.sql.functions import rand
 
 utils.printNowToFile("starting StringIndexer + OneHotEncoder pipeline:")
 
@@ -62,14 +63,14 @@ df = Pipeline(stages = indexers + encoders + assemblers).fit(df).transform(df)
 
 #Drop useless features
 utils.printNowToFile("dropping useless columns:")
-useless_col = ordinals_input + categoricals_input + numericals
+useless_col = numericals + ordinals_input + categoricals_input
 
 df = df.drop(*useless_col)
 
 # SPLIT DATASET
 #df = df.persist(StorageLevel.MEMORY_AND_DISK)
 
-( train_set, test_set ) = df.randomSplit([0.7, 0.3])
+( train_set, test_set ) = df.orderBy(rand()).randomSplit([0.7, 0.3])
 
 ###############################################################
 #SCALING
@@ -93,7 +94,7 @@ utils.printNowToFile("end pipeline std")
 
 #Drop useless features
 utils.printNowToFile("dropping useless columns:")
-useless_col = numericals + ordinals_input + categoricals_input + ['numericals_vector', 'ordinals_vector', 'categoricals_vector']
+useless_col = ['numericals_vector', 'ordinals_vector', 'categoricals_vector']
 train_set = train_set.drop(*useless_col)
 test_set = test_set.drop(*useless_col)
 
@@ -112,12 +113,12 @@ features_columns = ['features_std']
 for features_column in features_columns:
 
     utils.printNowToFile("starting CrossValidation for " + features_column + ":")
-    
+
     fold_1, fold_2, fold_3, fold_4, fold_5 = train_set.randomSplit([0.2, 0.2, 0.2, 0.2, 0.2])
-    
+
     scores_dict = {}
-    folds = [fold_1, fold_2, fold_3, fold_4, fold_4]
-    
+    folds = [fold_1, fold_2, fold_3, fold_4, fold_5]
+
     for alpha in [0.01, 0.1, 1]:
         utils.printNowToFile('trying alpha = ' + str(alpha))
         partial_scores = np.array([])
@@ -131,32 +132,32 @@ for features_column in features_columns:
             partial_scores = np.append(partial_scores, srrcv.r2(result.select('PINCP', 'new_column')))
         final_score = np.mean(partial_scores)
         scores_dict[alpha] = final_score
-    
+
     for k in scores_dict:
         utils.printNowToFile('alpha ' + str(k) + ' - r2 score ' + str(scores_dict[k]))
-    
+
     best_alpha = max(scores_dict, key=scores_dict.get)
     utils.printNowToFile('selected alpha: ' + str(best_alpha))
 
 ################################################################
 
     utils.printNowToFile("starting SparkRidgeRegression:")
-    
+
     train_set = train_set.persist(StorageLevel.DISK_ONLY)
 
     utils.printNowToFile("pre srr fit:")
     srr = rr.SparkRidgeRegression(reg_factor=best_alpha)
     srr.fit(train_set, features_column)
     utils.printNowToFile("post srr fit:")
-    
+
     result = srr.predict_many(test_set, features_column, 'new_column')
     utils.printToFile('result: {0}'.format(srr.r2(result.select('PINCP', 'new_column'))))
-    
+
     utils.printNowToFile("starting linear transform:")
     lin_reg = LinearRegression(standardization = False, featuresCol = features_column, labelCol='PINCP', maxIter=10, regParam=best_alpha, elasticNetParam=0.0, fitIntercept=True)
     linear_mod = lin_reg.fit(train_set)
     utils.printNowToFile("after linear transform:")
-    
+
     predictions = linear_mod.transform(test_set)
     y_true = predictions.select("PINCP").toPandas()
     y_pred = predictions.select("prediction").toPandas()
