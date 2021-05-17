@@ -5,16 +5,19 @@ from pyspark.ml.regression import LinearRegression
 from pyspark.storagelevel import StorageLevel
 
 ## CUSTOM IMPORT
-from src import ridge_regression as rr
+import conf
 from src import american_community_survey as amc
 from src import utils
-import conf
 
 ## START
     
 ###############################################################
 ## PREPROCESSING: CLEANING
 spark = conf.load_conf()
+
+spark.sparkContext.addPyFile('ridge_regression.py')
+import ridge_regression as rr
+
 # path to dataset
 utils.printNowToFile("starting:")
 DATA_PATH = './dataset/'
@@ -37,6 +40,11 @@ categoricals = [col for col in df.columns if col not in skipping + numericals + 
 #fill all null numericals value with 0
 df = df.fillna(0, numericals)
 
+# SPLIT DATASET
+from pyspark.sql.functions import rand
+#df = df.persist(StorageLevel.MEMORY_AND_DISK)
+( train_set, test_set ) = df.orderBy(rand()).randomSplit([0.7, 0.3])
+
 ###############################################################
 #INDEXING AND ENCODING
 
@@ -44,59 +52,46 @@ from pyspark.ml import Pipeline
 from pyspark.ml.feature import OneHotEncoder
 from pyspark.ml.feature import StringIndexer, VectorAssembler
 from pyspark.ml.feature import StandardScaler, RobustScaler, MinMaxScaler
-from pyspark.sql.functions import rand
 
-utils.printNowToFile("starting StringIndexer + OneHotEncoder pipeline:")
+utils.printNowToFile("starting pipeline")
 
 ordinals_input = [col+"_index" for col in ordinals]
 categoricals_input = [col+"_encode" for col in categoricals]
-
-indexers = [StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals]
-encoders = [OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals]
-assemblers = [
-    VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
-    VectorAssembler(inputCols = ordinals_input, outputCol = 'ordinals_vector'),
-    VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector')
-]
-
-df = Pipeline(stages = indexers + encoders + assemblers).fit(df).transform(df)
-
-#Drop useless features
-utils.printNowToFile("dropping useless columns:")
-useless_col = numericals + ordinals_input + categoricals_input
-
-df = df.drop(*useless_col)
-
-# SPLIT DATASET
-#df = df.persist(StorageLevel.MEMORY_AND_DISK)
-
-( train_set, test_set ) = df.orderBy(rand()).randomSplit([0.7, 0.3])
-
-###############################################################
-#SCALING
-
-utils.printNowToFile("starting scalers pipelines:")
-
 stdFeatures = ['numericals_std', 'ordinals_std', 'categoricals_std']
 
-#std scaler 
-std_pipeline = [
+# numericals
+stages = [
+    # numericals
+    VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
     StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_std', withStd=True, withMean=True),
+
+    # ordinals
+    *[StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals],
+    VectorAssembler(inputCols = ordinals_input, outputCol = 'ordinals_vector'),
     StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_std', withStd=True, withMean=True),
+
+    # categoricals
+    *[StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in categoricals],
+    *[OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals],
+    VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector'),
     StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_std', withStd=True, withMean=True),
+
+    # final aassembler
     VectorAssembler(inputCols = stdFeatures, outputCol = 'features_std')
 ]
 
-pipeline = Pipeline(stages = std_pipeline).fit(train_set)
+pipeline = Pipeline(stages=stages).fit(train_set)
 train_set = pipeline.transform(train_set)
 test_set = pipeline.transform(test_set)
-utils.printNowToFile("end pipeline std")
+
+###############################################################
+
+final_columns = [target, 'features_std']
 
 #Drop useless features
 utils.printNowToFile("dropping useless columns:")
-useless_col = ['numericals_vector', 'ordinals_vector', 'categoricals_vector']
-train_set = train_set.drop(*useless_col)
-test_set = test_set.drop(*useless_col)
+train_set = train_set.select(final_columns)
+test_set = test_set.select(final_columns)
 
 ################################################################
 #TUNING WITH K-FOLD CROSS VALIDATION
@@ -109,8 +104,7 @@ import numpy as np
 def unionAll(*dfs):
     return reduce(DataFrame.unionByName, dfs)
 
-features_columns = ['features_std']
-for features_column in features_columns:
+for features_column in [col for col in final_columns if col != target]:
 
     utils.printNowToFile("starting CrossValidation for " + features_column + ":")
 
