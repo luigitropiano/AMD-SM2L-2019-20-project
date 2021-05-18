@@ -5,16 +5,18 @@ from pyspark.ml.regression import LinearRegression
 from pyspark.storagelevel import StorageLevel
 
 ## CUSTOM IMPORT
-from src import ridge_regression as rr
+import conf
 from src import american_community_survey as amc
 from src import utils
-import conf
-
 ## START
     
 ###############################################################
 ## PREPROCESSING: CLEANING
 spark = conf.load_conf()
+
+spark.sparkContext.addPyFile('ridge_regression.py')
+import ridge_regression as rr
+
 # path to dataset
 utils.printNowToFile("starting:")
 DATA_PATH = './dataset/'
@@ -37,65 +39,60 @@ categoricals = [col for col in df.columns if col not in skipping + numericals + 
 #fill all null numericals value with 0
 df = df.fillna(0, numericals)
 
-###############################################################
-#INDEXING AND ENCODING
-from pyspark.ml import Pipeline
-from pyspark.ml.feature import PCA
-from pyspark.ml.feature import OneHotEncoder
-from pyspark.ml.feature import StringIndexer, VectorAssembler
-from pyspark.ml.feature import StandardScaler
-from pyspark.sql.functions import rand
-
-utils.printNowToFile("starting StringIndexer + OneHotEncoder pipeline:")
-
-ordinals_input = [col+"_index" for col in ordinals]
-categoricals_input = [col+"_encode" for col in categoricals]
-
-indexers = [StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals + categoricals]
-encoders = [OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals]
-assemblers = [
-    VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
-    VectorAssembler(inputCols = ordinals_input, outputCol = 'ordinals_vector'),
-    VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector')
-]
-
-df = Pipeline(stages = indexers + encoders + assemblers).fit(df).transform(df)
-
-#Drop useless features
-utils.printNowToFile("dropping useless columns:")
-useless_col = numericals + ordinals_input + categoricals_input
-
-df = df.drop(*useless_col)
-
 # SPLIT DATASET
 #df = df.persist(StorageLevel.MEMORY_AND_DISK)
 ( train_set, test_set ) = df.orderBy(rand()).randomSplit([0.7, 0.3])
-
 ###############################################################
-#SCALING
+#INDEXING AND ENCODING
 
-utils.printNowToFile("starting scalers pipelines:")
+from pyspark.ml import Pipeline
+from pyspark.ml.feature import OneHotEncoder
+from pyspark.ml.feature import StringIndexer, VectorAssembler
+from pyspark.ml.feature import StandardScaler, PCA
 
-scaledFeatures = ['numericals_scaled', 'ordinals_scaled', 'categoricals_scaled']
+utils.printNowToFile("starting pipeline")
 
+ordinals_input = [col+"_index" for col in ordinals]
+categoricals_input = [col+"_encode" for col in categoricals]
+stdFeatures = ['numericals_std', 'ordinals_std', 'categoricals_std']
+
+# stages for index and encoding pipeline
 stages = [
-    StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_scaled', withStd=True, withMean=True),
-    StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_scaled', withStd=True, withMean=True),
-    StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_scaled', withStd=True, withMean=True),
-    VectorAssembler(inputCols = scaledFeatures, outputCol = 'scaledFeatures'),
-    PCA(k=75, inputCol='scaledFeatures', outputCol='features_final')
+    # numericals
+    VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
+    StandardScaler(inputCol = 'numericals_vector', outputCol = 'numericals_std', withStd=True, withMean=True),
+
+    # ordinals
+    *[StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in ordinals],
+    VectorAssembler(inputCols = ordinals_input, outputCol = 'ordinals_vector'),
+    StandardScaler(inputCol = 'ordinals_vector', outputCol = 'ordinals_std', withStd=True, withMean=True),
+
+    # categoricals
+    *[StringIndexer(inputCol=col, outputCol=col+"_index", handleInvalid='keep') for col in categoricals],
+    *[OneHotEncoder(inputCol=col+"_index", outputCol=col+"_encode", dropLast = True) for col in categoricals],
+    VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector'),
+    StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_std', withStd=True, withMean=True),
+
+    # final assembler
+    VectorAssembler(inputCols = stdFeatures, outputCol = 'features_std'),
+    
+    #PCA
+    PCA(k=75, inputCol='features_std', outputCol='features_final')
 ]
 
-pipeline = Pipeline(stages = stages).fit(train_set)
+pipeline = Pipeline(stages=stages).fit(train_set)
 train_set = pipeline.transform(train_set)
 test_set = pipeline.transform(test_set)
-utils.printNowToFile("end pipeline std")
+
+###############################################################
+
+final_columns = [target, 'features_final']
 
 #Drop useless features
 utils.printNowToFile("dropping useless columns:")
-useless_col = ['numericals_vector', 'ordinals_vector', 'categoricals_vector']
-train_set = train_set.drop(*useless_col)
-test_set = test_set.drop(*useless_col)
+train_set = train_set.select(final_columns)
+test_set = test_set.select(final_columns)
+
 
 ################################################################
 #TUNING WITH K-FOLD CROSS VALIDATION
@@ -127,8 +124,8 @@ for features_column in features_columns:
             cv = unionAll(*folds_to_merge)
             cv = cv.coalesce(100)
             srrcv.fit(cv, features_column)
-            result = srrcv.predict_many(test_set, features_column, 'new_column')
-            partial_scores = np.append(partial_scores, srrcv.r2(result.select('PINCP', 'new_column')))
+            result = srrcv.predict_many(test_set, features_column, 'target_predictions')
+            partial_scores = np.append(partial_scores, srrcv.r2(result.select('PINCP', 'target_predictions')))
         final_score = np.mean(partial_scores)
         scores_dict[alpha] = final_score
 
@@ -149,8 +146,8 @@ for features_column in features_columns:
     srr.fit(train_set, features_column)
     utils.printNowToFile("post srr fit:")
 
-    result = srr.predict_many(test_set, features_column, 'new_column')
-    utils.printToFile('result: {0}'.format(srr.r2(result.select('PINCP', 'new_column'))))
+    result = srr.predict_many(test_set, features_column, 'target_predictions')
+    utils.printToFile('result: {0}'.format(srr.r2(result.select('PINCP', 'target_predictions'))))
 
     utils.printNowToFile("starting linear transform:")
     lin_reg = LinearRegression(standardization = False, featuresCol = features_column, labelCol='PINCP', maxIter=10, regParam=best_alpha, elasticNetParam=0.0, fitIntercept=True)

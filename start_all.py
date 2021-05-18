@@ -26,7 +26,7 @@ df = amc.load_dataset(DATA_PATH, spark)
 ###############################################################
 ## PREPROCESSING: FEATURES ENGINEERING
 
-# name of the target column and emrove all the rows where 'PINCP' is null
+# name of the target column and remove all the rows where 'PINCP' is null
 target = 'PINCP'
 df = df.dropna(subset = target)
 
@@ -51,7 +51,7 @@ from pyspark.sql.functions import rand
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import OneHotEncoder
 from pyspark.ml.feature import StringIndexer, VectorAssembler
-from pyspark.ml.feature import StandardScaler, RobustScaler, MinMaxScaler
+from pyspark.ml.feature import StandardScaler
 
 utils.printNowToFile("starting pipeline")
 
@@ -59,7 +59,7 @@ ordinals_input = [col+"_index" for col in ordinals]
 categoricals_input = [col+"_encode" for col in categoricals]
 stdFeatures = ['numericals_std', 'ordinals_std', 'categoricals_std']
 
-# numericals
+# stages for index and encoding pipeline
 stages = [
     # numericals
     VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
@@ -76,7 +76,7 @@ stages = [
     VectorAssembler(inputCols = categoricals_input, outputCol = 'categoricals_vector'),
     StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_std', withStd=True, withMean=True),
 
-    # final aassembler
+    # final assembler
     VectorAssembler(inputCols = stdFeatures, outputCol = 'features_std')
 ]
 
@@ -144,8 +144,8 @@ for features_column in [col for col in final_columns if col != target]:
     srr.fit(train_set, features_column)
     utils.printNowToFile("post srr fit:")
 
-    result = srr.predict_many(test_set, features_column, 'new_column')
-    utils.printToFile('result: {0}'.format(srr.r2(result.select('PINCP', 'new_column'))))
+    result = srr.predict_many(test_set, features_column, 'target_predictions')
+    utils.printToFile('result: {0}'.format(srr.r2(result.select('PINCP', 'target_predictions'))))
 
     utils.printNowToFile("starting linear transform:")
     lin_reg = LinearRegression(standardization = False, featuresCol = features_column, labelCol='PINCP', maxIter=10, regParam=best_alpha, elasticNetParam=0.0, fitIntercept=True)

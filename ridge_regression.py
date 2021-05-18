@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 from pyspark.sql import functions as F
-from pyspark.sql.types import FloatType, DoubleType
-from pyspark.ml.linalg import DenseVector, SparseVector, Vector, VectorUDT
+from pyspark.sql.types import DoubleType
+from pyspark.ml.linalg import DenseVector, VectorUDT
 from pyspark.sql.functions import udf
 
 @udf(VectorUDT())

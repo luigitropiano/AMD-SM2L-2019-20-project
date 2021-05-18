@@ -143,8 +143,8 @@ for features_column in features_columns:
     srr.fit(train_set, features_column)
     utils.printNowToFile("post srr fit:")
 
-    result = srr.predict_many(test_set, features_column, 'new_column')
-    utils.printToFile('result: {0}'.format(srr.r2(result.select('PINCP', 'new_column'))))
+    result = srr.predict_many(test_set, features_column, 'target_predictions')
+    utils.printToFile('result: {0}'.format(srr.r2(result.select('PINCP', 'target_predictions'))))
 
     utils.printNowToFile("starting linear transform:")
     lin_reg = LinearRegression(standardization = False, featuresCol = features_column, labelCol='PINCP', maxIter=10, regParam=alpha, elasticNetParam=0.0, fitIntercept=True)
