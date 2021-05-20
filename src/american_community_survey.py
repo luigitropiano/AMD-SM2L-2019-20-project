@@ -1,9 +1,17 @@
 import os, zipfile
 from src import utils
 
+import os
+import kaggle, zipfile
 
 def load_dataset(DATA_PATH, spark):
 
+    kaggle.api.authenticate()
+
+    # (unzip=False otherwise the dataset is downloaded entirely every time)
+    kaggle.api.dataset_download_files('census/2013-american-community-survey', path=DATA_PATH, force=False, quiet=False, unzip=False)
+
+    # csv_files is the list of csv exracted from the dataset
     csv_files = [x for x in os.listdir(DATA_PATH) if 'csv' in x]
 
     # if dataset not already unzipped, unzip it
