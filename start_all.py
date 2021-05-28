@@ -107,31 +107,36 @@ def unionAll(*dfs):
 for features_column in [col for col in final_columns if col != target]:
 
     utils.printNowToFile("starting CrossValidation for " + features_column + ":")
-
     fold_1, fold_2, fold_3, fold_4, fold_5 = train_set.randomSplit([0.2, 0.2, 0.2, 0.2, 0.2])
 
     scores_dict = {}
     folds = [fold_1, fold_2, fold_3, fold_4, fold_5]
 
+    merged_folds = []
+    for i in range(len(folds)):
+        folds_to_merge = [f for f in folds if f != folds[i]]
+        mf = unionAll(*folds_to_merge)
+        mf = mf.coalesce(200)
+        mf = mf.persist(StorageLevel.MEMORY_AND_DISK)
+        merged_folds.append({'train': mf, 'val': folds[i]})
+
     for alpha in [0.01, 0.1, 1]:
         utils.printNowToFile('trying alpha = ' + str(alpha))
         partial_scores = np.array([])
         srrcv = rr.SparkRidgeRegression(reg_factor=alpha)
-        for fold in folds:
-            folds_to_merge = [f for f in folds if f != fold]
-            cv = unionAll(*folds_to_merge)
-            cv = cv.coalesce(100)
-            srrcv.fit(cv, features_column)
-            result = srrcv.predict_many(test_set, features_column, 'new_column')
-            partial_scores = np.append(partial_scores, srrcv.r2(result.select('PINCP', 'new_column')))
+        for mf in merged_folds:
+            srrcv.fit(mf['train'], features_column)
+            result = srrcv.predict_many(mf['val'], features_column, 'target_predictions')
+            partial_scores = np.append(partial_scores, srrcv.r2(result.select('PINCP', 'target_predictions')))
         final_score = np.mean(partial_scores)
         scores_dict[alpha] = final_score
-
+   
     for k in scores_dict:
         utils.printNowToFile('alpha ' + str(k) + ' - r2 score ' + str(scores_dict[k]))
 
     best_alpha = max(scores_dict, key=scores_dict.get)
     utils.printNowToFile('selected alpha: ' + str(best_alpha))
+
 
 ################################################################
 
