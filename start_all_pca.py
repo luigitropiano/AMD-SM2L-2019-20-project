@@ -40,6 +40,7 @@ categoricals = [col for col in df.columns if col not in skipping + numericals + 
 df = df.fillna(0, numericals)
 
 # SPLIT DATASET
+from pyspark.sql.functions import rand
 #df = df.persist(StorageLevel.MEMORY_AND_DISK)
 ( train_set, test_set ) = df.orderBy(rand()).randomSplit([0.7, 0.3])
 ###############################################################
@@ -77,7 +78,7 @@ stages = [
     VectorAssembler(inputCols = stdFeatures, outputCol = 'features_std'),
     
     #PCA
-    PCA(k=75, inputCol='features_std', outputCol='features_final')
+    PCA(k=50, inputCol='features_std', outputCol='features_final')
 ]
 
 pipeline = Pipeline(stages=stages).fit(train_set)
@@ -115,16 +116,20 @@ for features_column in features_columns:
     scores_dict = {}
     folds = [fold_1, fold_2, fold_3, fold_4, fold_5]
 
+    merged_folds = []
+    for i in range(folds):
+        folds_to_merge = [f for f in folds if f != folds[i]]
+        mf = unionAll(*folds_to_merge)
+        mf = mf.coalesce(200)
+        merged_folds[i] = {'train': mv, 'val': folds[i]}
+
     for alpha in [0.01, 0.1, 1]:
         utils.printNowToFile('trying alpha = ' + str(alpha))
         partial_scores = np.array([])
         srrcv = rr.SparkRidgeRegression(reg_factor=alpha)
-        for fold in folds:
-            folds_to_merge = [f for f in folds if f != fold]
-            cv = unionAll(*folds_to_merge)
-            cv = cv.coalesce(100)
-            srrcv.fit(cv, features_column)
-            result = srrcv.predict_many(test_set, features_column, 'target_predictions')
+        for mdf in merged_folds:
+            srrcv.fit(mdf['train'], features_column)
+            result = srrcv.predict_many(mdf['val'], features_column, 'target_predictions')
             partial_scores = np.append(partial_scores, srrcv.r2(result.select('PINCP', 'target_predictions')))
         final_score = np.mean(partial_scores)
         scores_dict[alpha] = final_score
