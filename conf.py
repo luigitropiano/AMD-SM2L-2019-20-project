@@ -11,7 +11,7 @@ def load_conf_default():
     findspark.init()
 
     configArray = [
-#        ('spark.local.dir', './spark_tmp')
+        ('spark.local.dir', './spark/spark_tmp')
 #        ('spark.cores.max', 2),
 #        ('spark.executor.cores', 2),
         ('spark.executor.memory', '9g'),
