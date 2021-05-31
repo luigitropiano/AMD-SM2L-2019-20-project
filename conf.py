@@ -4,13 +4,14 @@ import findspark
 import pyspark
 from pyspark.sql import SparkSession
 
-def load_conf():
+def load_conf_default():
     os.environ["SPARK_HOME"] = "./spark/spark-3.1.1-bin-hadoop3.2"
     os.environ["HADOOP_HOME"] = "./spark/spark-3.1.1-bin-hadoop3.2"
-    
+
     findspark.init()
-    
+
     configArray = [
+#        ('spark.local.dir', './spark_tmp')
 #        ('spark.cores.max', 2),
 #        ('spark.executor.cores', 2),
         ('spark.executor.memory', '9g'),
@@ -19,20 +20,25 @@ def load_conf():
 #        ('spark.driver.cores', 2),
 #        ("spark.sql.shuffle.partitions", "50"),
 #        ("spark.default.parallelism", "1"),
-        ('spark.network.timeout', '480s'),
-        ('spark.executor.heartbeatInterval', '40s'),
-        ('spark.local.dir', './spark_tmp')
+#        ('spark.network.timeout', '480s'),
+#        ('spark.executor.heartbeatInterval', '40s'),
 #        ('spark.ui.enabled', 'false'),
 #        ("spark.python.worker.reuse", False)
     ]
-    
-    config = pyspark.SparkConf().setMaster("local[5]").setAll(configArray)
-    
+
+    config = pyspark.SparkConf().setMaster("local[*]").setAll(configArray)
+    #config = pyspark.SparkConf().setMaster("spark://thinkzen.localdomain:7077")
     spark = SparkSession.builder.config(conf=config).getOrCreate()
-#    debug=False
-#    if debug:
-#        logger = spark._jvm.org.apache.log4j
-#        logger.LogManager.getLogger("org"). setLevel( logger.Level.DEBUG )
-#        logger.LogManager.getLogger("akka").setLevel( logger.Level.DEBUG )
+
+    return spark
+
+def load_conf(spark_master_url, spark_master_port):
+    os.environ["SPARK_HOME"] = "./spark/spark-3.1.1-bin-hadoop3.2"
+    os.environ["HADOOP_HOME"] = "./spark/spark-3.1.1-bin-hadoop3.2"
+
+    findspark.init()
+
+    config = pyspark.SparkConf().setMaster(f'spark://{spark_master_url}:{spark_master_port}')
+    spark = SparkSession.builder.config(conf=config).getOrCreate()
 
     return spark
