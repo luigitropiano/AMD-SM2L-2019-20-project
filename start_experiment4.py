@@ -36,18 +36,6 @@ df = amc.load_dataset(DATA_PATH, spark)
 
 ###############################################################
 ## PREPROCESSING: FEATURES ENGINEERING
-spark = conf.load_conf()
-
-spark.sparkContext.addPyFile('ridge_regression.py')
-import ridge_regression as rr
-
-# path to dataset
-utils.printNowToFile("starting:")
-DATA_PATH = './dataset/'
-df = amc.load_dataset(DATA_PATH, spark)
-
-###############################################################
-## PREPROCESSING: FEATURES ENGINEERING
 
 # name of the target column and remove all the rows where 'PINCP' is null
 target = 'PINCP'
