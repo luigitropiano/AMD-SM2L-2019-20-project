@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import sklearn.metrics
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.regression import LinearRegression
@@ -15,9 +16,9 @@ from src import download_spark
 args = utils.get_argparser().parse_args()
 
 utils.printNowToFile("starting:")
-# path to dataset
-DATA_PATH = './dataset/'
-download_spark.download(DATA_PATH)
+
+utils.printNowToFile("downloading spark")
+download_spark.download(os.getcwd())
 
 ###############################################################
 if args.host and args.port:
@@ -29,6 +30,8 @@ spark.sparkContext.addPyFile('ridge_regression.py')
 import ridge_regression as rr
 
 ## PREPROCESSING: CLEANING
+## path to dataset
+DATA_PATH = './dataset'
 df = amc.load_dataset(DATA_PATH, spark)
 
 ###############################################################
