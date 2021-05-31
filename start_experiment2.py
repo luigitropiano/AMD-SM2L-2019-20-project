@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import sklearn.metrics
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.regression import LinearRegression
@@ -8,10 +9,16 @@ from pyspark.storagelevel import StorageLevel
 import conf
 from src import american_community_survey as amc
 from src import utils
+from src import download_spark
 
 ## START
 # Initiate the parser
 args = utils.get_argparser().parse_args()
+
+utils.printNowToFile("starting:")
+
+utils.printNowToFile("downloading spark")
+download_spark.download(os.getcwd())
 
 ###############################################################
 if args.host and args.port:
@@ -23,22 +30,8 @@ spark.sparkContext.addPyFile('ridge_regression.py')
 import ridge_regression as rr
 
 ## PREPROCESSING: CLEANING
-# path to dataset
-utils.printNowToFile("starting:")
-DATA_PATH = './dataset/'
-df = amc.load_dataset(DATA_PATH, spark)
-
-###############################################################
-
-## PREPROCESSING: CLEANING
-spark = conf.load_conf()
-
-spark.sparkContext.addPyFile('ridge_regression.py')
-import ridge_regression as rr
-
-# path to dataset
-utils.printNowToFile("starting:")
-DATA_PATH = './dataset/'
+## path to dataset
+DATA_PATH = './dataset'
 df = amc.load_dataset(DATA_PATH, spark)
 
 ###############################################################
@@ -54,21 +47,26 @@ numericals = ['NP', 'BDSP', 'CONP', 'ELEP', 'FULP', 'INSP', 'MHP', 'MRGP', 'RMSP
 ordinals = ['AGS', 'YBL', 'MV', 'TAXP', 'CITWP', 'DRAT', 'JWRIP', 'MARHT', 'MARHYP', 'SCHG', 'SCHL', 'WKW', 'YOEP', 'DECADE', 'JWAP', 'JWDP', 'SFN']
 categoricals = [col for col in df.columns if col not in skipping + numericals + ordinals + [target]]
 
+import random
+random.shuffle(categoricals)
+categoricals = categoricals[:25]
+print(categoricals)
+
 ################################################################
 #fill all null numericals value with 0
 df = df.fillna(0, numericals)
 
 # SPLIT DATASET
 from pyspark.sql.functions import rand
-
 ( train_set, test_set ) = df.orderBy(rand()).randomSplit([0.7, 0.3])
+
 ###############################################################
 #INDEXING AND ENCODING
 
 from pyspark.ml import Pipeline
 from pyspark.ml.feature import OneHotEncoder
 from pyspark.ml.feature import StringIndexer, VectorAssembler
-from pyspark.ml.feature import StandardScaler, PCA
+from pyspark.ml.feature import StandardScaler
 
 utils.printNowToFile("starting pipeline")
 
@@ -94,10 +92,7 @@ stages = [
     StandardScaler(inputCol = 'categoricals_vector', outputCol = 'categoricals_std', withStd=True, withMean=True),
 
     # final assembler
-    VectorAssembler(inputCols = stdFeatures, outputCol = 'features_std'),
-    
-    #PCA
-    PCA(k=50, inputCol='features_std', outputCol='features_final')
+    VectorAssembler(inputCols = stdFeatures, outputCol = 'features_std')
 ]
 
 pipeline = Pipeline(stages=stages).fit(train_set)
@@ -106,13 +101,12 @@ test_set = pipeline.transform(test_set)
 
 ###############################################################
 
-final_columns = [target, 'features_final']
+final_columns = [target, 'features_std']
 
 #Drop useless features
 utils.printNowToFile("dropping useless columns:")
 train_set = train_set.select(final_columns)
 test_set = test_set.select(final_columns)
-
 
 ################################################################
 #TUNING WITH K-FOLD CROSS VALIDATION
@@ -158,6 +152,7 @@ for features_column in [col for col in final_columns if col != target]:
     best_alpha = max(scores_dict, key=scores_dict.get)
     utils.printNowToFile('selected alpha: ' + str(best_alpha))
 
+
 ################################################################
 
     utils.printNowToFile("starting SparkRidgeRegression:")
@@ -183,14 +178,5 @@ for features_column in [col for col in final_columns if col != target]:
     r2_score = sklearn.metrics.r2_score(y_true, y_pred)
     utils.printToFile('r2_score before: {0}'.format(r2_score))
 
-'''
-predict_target = ['PINCP', 'new_column']
-predictions=rg.predict_many(test_set).select(*predict_target)
-y_true = predictions.select("PINCP").toPandas()
-y_pred = predictions.select("new_column").toPandas()
-import sklearn.metrics
-r2_score = sklearn.metrics.r2_score(y_true, y_pred)
-utils.printToFile('r2_score after: {0}'.format(r2_score))
-'''
 
 utils.printNowToFile("done:")
