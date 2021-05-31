@@ -5,7 +5,6 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.regression import LinearRegression
 from pyspark.storagelevel import StorageLevel
 
-
 ## CUSTOM IMPORT
 import conf
 from src import american_community_survey as amc
@@ -31,14 +30,12 @@ spark.sparkContext.addPyFile('ridge_regression.py')
 import ridge_regression as rr
 
 ## PREPROCESSING: CLEANING
-# path to dataset
-utils.printNowToFile("starting:")
-DATA_PATH = './dataset/'
+## path to dataset
+DATA_PATH = './dataset'
 df = amc.load_dataset(DATA_PATH, spark)
 
 ###############################################################
-
-## PREPROCESSING: CLEANING
+## PREPROCESSING: FEATURES ENGINEERING
 spark = conf.load_conf()
 
 spark.sparkContext.addPyFile('ridge_regression.py')
