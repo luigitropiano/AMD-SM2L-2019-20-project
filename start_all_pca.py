@@ -4,14 +4,21 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.regression import LinearRegression
 from pyspark.storagelevel import StorageLevel
 
+
 ## CUSTOM IMPORT
 import conf
 from src import american_community_survey as amc
 from src import utils
+from src import download_spark
 
 ## START
 # Initiate the parser
 args = utils.get_argparser().parse_args()
+
+utils.printNowToFile("starting:")
+
+utils.printNowToFile("downloading spark")
+download_spark.download(os.getcwd())
 
 ###############################################################
 if args.host and args.port:
