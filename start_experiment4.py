@@ -104,7 +104,7 @@ stages = [
     VectorAssembler(inputCols = stdFeatures, outputCol = 'features_std'),
     
     #PCA
-    PCA(k=50, inputCol='features_std', outputCol='features_final')
+    PCA(k=75, inputCol='features_std', outputCol='features_final')
 ]
 
 pipeline = Pipeline(stages=stages).fit(train_set)
@@ -190,14 +190,6 @@ for features_column in [col for col in final_columns if col != target]:
     r2_score = sklearn.metrics.r2_score(y_true, y_pred)
     utils.printToFile('r2_score before: {0}'.format(r2_score))
 
-'''
-predict_target = ['PINCP', 'new_column']
-predictions=rg.predict_many(test_set).select(*predict_target)
-y_true = predictions.select("PINCP").toPandas()
-y_pred = predictions.select("new_column").toPandas()
-import sklearn.metrics
-r2_score = sklearn.metrics.r2_score(y_true, y_pred)
-utils.printToFile('r2_score after: {0}'.format(r2_score))
-'''
+
 
 utils.printNowToFile("done:")
