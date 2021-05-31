@@ -26,7 +26,13 @@ This project is valid for the academic year 2019/20.
 The project have been tested with python 3.7+ . In order to run our code it is
 necessary to install the requirements contained in `requirements.txt`. 
 We have created a different file for each of the experiment explained in the
-project report. We performed a total of 5 experiments. 
+project report. We performed a total of 5 different experiments, that are:
+
+- Experiment 1: Only numericals and ordinals features (no categoricals)
+- Experiment 2: All numericals + all ordinals + 25 of 150 categorical features
+- Experiment 3: All numericals + all ordinals + 100 of 150 categorical features
+- Experiment 4: All features + PCA
+- Experiment 5: All features
 
 ## Quick start guide
 
@@ -39,4 +45,4 @@ commands:
 
 `~$ pip install -r requirements.txt`
 
-`~$ python3 ./experiments[1-5].py`
+`~$ python3 ./start_experiment[1-5].py`
