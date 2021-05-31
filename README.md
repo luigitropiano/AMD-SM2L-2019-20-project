@@ -32,7 +32,9 @@ project report. We performed a total of 5 different experiments, that are:
 - Experiment 2: All numericals + all ordinals + 25 of 150 categorical features
 - Experiment 3: All numericals + all ordinals + 100 of 150 categorical features
 - Experiment 4: All features + PCA
+<!---
 - Experiment 5: All features
+-->
 
 ## Quick start guide
 
