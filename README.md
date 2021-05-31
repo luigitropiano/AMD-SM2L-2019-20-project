@@ -39,4 +39,4 @@ commands:
 
 `~$ pip install -r requirements.txt`
 
-`~$ python3 experiments[1-5].py`
+`~$ python3 ./experiments[1-5].py`
