@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import sklearn.metrics
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.regression import LinearRegression

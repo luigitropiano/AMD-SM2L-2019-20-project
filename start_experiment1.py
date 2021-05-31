@@ -55,10 +55,9 @@ from pyspark.sql.functions import rand
 ( train_set, test_set ) = df.orderBy(rand()).randomSplit([0.7, 0.3])
 
 ###############################################################
-#INDEXING AND ENCODING
+#INDEXING AND SCALING
 
 from pyspark.ml import Pipeline
-from pyspark.ml.feature import OneHotEncoder
 from pyspark.ml.feature import StringIndexer, VectorAssembler
 from pyspark.ml.feature import StandardScaler
 
@@ -67,7 +66,7 @@ utils.printNowToFile("starting pipeline")
 ordinals_input = [col+"_index" for col in ordinals]
 stdFeatures = ['numericals_std', 'ordinals_std']
 
-# stages for index and encoding pipeline
+# stages for index and scaling pipeline
 stages = [
     # numericals
     VectorAssembler(inputCols = numericals, outputCol = 'numericals_vector', handleInvalid='keep'),
