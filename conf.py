@@ -4,14 +4,15 @@ import findspark
 import pyspark
 from pyspark.sql import SparkSession
 
+os.environ["SPARK_HOME"] = "./spark/spark-3.1.1-bin-hadoop3.2"
+os.environ["HADOOP_HOME"] = "./spark/spark-3.1.1-bin-hadoop3.2"
+
 def load_conf_default():
-    os.environ["SPARK_HOME"] = "./spark/spark-3.1.1-bin-hadoop3.2"
-    os.environ["HADOOP_HOME"] = "./spark/spark-3.1.1-bin-hadoop3.2"
 
     findspark.init()
 
     configArray = [
-        ('spark.local.dir', './spark/spark_tmp')
+        ('spark.local.dir', './spark/spark_tmp'),
 #        ('spark.cores.max', 2),
 #        ('spark.executor.cores', 2),
         ('spark.executor.memory', '9g'),
@@ -33,8 +34,6 @@ def load_conf_default():
     return spark
 
 def load_conf(spark_master_url, spark_master_port):
-    os.environ["SPARK_HOME"] = "./spark/spark-3.1.1-bin-hadoop3.2"
-    os.environ["HADOOP_HOME"] = "./spark/spark-3.1.1-bin-hadoop3.2"
 
     findspark.init()
 
