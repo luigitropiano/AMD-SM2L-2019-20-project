@@ -10,10 +10,34 @@ from src import american_community_survey as amc
 from src import utils
 
 ## START
-    
+def check_port(value):
+    if not value.isnumeric():
+        raise argparse.ArgumentTypeError(f'{value} is not a valid value')
+    ivalue = int(value)
+    if ivalue < 1024 or ivalue > 65535:
+        raise argparse.ArgumentTypeError(f'{value} is not a valid value')
+    return ivalue
+
+# Initiate the parser
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("-H", "--host",
+                    help = "set url of the spark master",
+                    type = str)
+parser.add_argument("-P", "--port",
+                    help = "set port of the spark master, default to 7077",
+                    type = check_port,
+                    default = 7077)
+#parser.add_argument("-V", "--version", help="show program version", action="store_true")
+
+args = parser.parse_args()
+
 ###############################################################
 ## PREPROCESSING: CLEANING
-spark = conf.load_conf()
+if args.host and args.port:
+    spark = conf.load_conf(args.host, args.port)
+else:
+    spark = conf.load_conf_default()
 
 spark.sparkContext.addPyFile('ridge_regression.py')
 import ridge_regression as rr
