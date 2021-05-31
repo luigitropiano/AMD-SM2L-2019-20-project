@@ -8,10 +8,16 @@ from pyspark.storagelevel import StorageLevel
 import conf
 from src import american_community_survey as amc
 from src import utils
+from src import download_spark
 
 ## START
 # Initiate the parser
 args = utils.get_argparser().parse_args()
+
+utils.printNowToFile("starting:")
+# path to dataset
+DATA_PATH = './dataset/'
+download_spark.download(DATA_PATH)
 
 ###############################################################
 if args.host and args.port:
@@ -23,9 +29,6 @@ spark.sparkContext.addPyFile('ridge_regression.py')
 import ridge_regression as rr
 
 ## PREPROCESSING: CLEANING
-# path to dataset
-utils.printNowToFile("starting:")
-DATA_PATH = './dataset/'
 df = amc.load_dataset(DATA_PATH, spark)
 
 ###############################################################
