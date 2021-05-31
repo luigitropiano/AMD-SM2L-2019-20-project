@@ -8,9 +8,28 @@ from pyspark.storagelevel import StorageLevel
 import conf
 from src import american_community_survey as amc
 from src import utils
+
 ## START
-    
+# Initiate the parser
+args = utils.get_argparser().parse_args()
+
 ###############################################################
+if args.host and args.port:
+    spark = conf.load_conf(args.host, args.port)
+else:
+    spark = conf.load_conf_default()
+
+spark.sparkContext.addPyFile('ridge_regression.py')
+import ridge_regression as rr
+
+## PREPROCESSING: CLEANING
+# path to dataset
+utils.printNowToFile("starting:")
+DATA_PATH = './dataset/'
+df = amc.load_dataset(DATA_PATH, spark)
+
+###############################################################
+
 ## PREPROCESSING: CLEANING
 spark = conf.load_conf()
 
@@ -41,7 +60,7 @@ df = df.fillna(0, numericals)
 
 # SPLIT DATASET
 from pyspark.sql.functions import rand
-#df = df.persist(StorageLevel.MEMORY_AND_DISK)
+
 ( train_set, test_set ) = df.orderBy(rand()).randomSplit([0.7, 0.3])
 ###############################################################
 #INDEXING AND ENCODING
