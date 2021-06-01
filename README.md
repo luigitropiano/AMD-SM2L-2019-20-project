@@ -32,9 +32,7 @@ project report. We performed a total of 4 different experiments, that are:
 - Experiment 2: All numericals + all ordinals + 25 of 150 categorical features
 - Experiment 3: All numericals + all ordinals + 100 of 150 categorical features
 - Experiment 4: All features + PCA
-<!---
 - Experiment 5: All features
--->
 
 ## Quick start guide
 
@@ -47,7 +45,7 @@ commands:
 
 `~$ pip install -r requirements.txt`
 
-`~$ python3 ./start_experiment[1-4].py`
+`~$ python3 ./start_experiment[1-5].py`
 
 This will start the project using the Apache Spark local mode, which is a non-distributed single-JVM deployment mode, where Spark spawns all the execution components - driver, executor, backend, and master - in the same single JVM.
 
@@ -55,6 +53,6 @@ If you already have a working Apache Spark setup and would like to submit our
 code to your cluster, you can pass the hostname and the port of your Master
 process as shown in the following command:
 
-`~$ python3 ./start_experiment[1-4].py -H <hostname> -P <port>`
+`~$ python3 ./start_experiment[1-5].py -H <hostname> -P <port>`
 
 If not specified, `<port>` will default to `7077`
