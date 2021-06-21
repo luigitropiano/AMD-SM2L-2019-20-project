@@ -65,9 +65,12 @@ It is possible to start our project by choosing one of the 3 following ways:
 
   `~$ python3 ./start_experiment[1-5].py -H 127.0.1.1`
 
+
   This will start two different processes: one master process on port 7077, and an isolated worker process with 12 GB of ram and with 7 allocated cores. It will also create one executor running within the worker process with 9 GB of ram and 6 allocated cores.
   This has shown to be an effective setup on our 8 core / 16 threads machine with 16 GB of ram. 
   From our tests, the standalone mode was much more stable than the local mode.
+
+  ***In order to allow the worker and the master processes to comunicate, OpenSSH must be installed on the system and an SSH server must be running on the machine (by default listening on port 22)***
   
   When finished, in order to stop the standalone cluster, just run: 
 
