@@ -72,7 +72,7 @@ It is possible to start our project by choosing one of the 3 following ways:
 
   ***In order to allow the worker and the master processes to comunicate, OpenSSH must be installed on the system and an SSH server must be running on the machine (by default listening on port 22)***
   
-  When finished, in order to stop the standalone cluster, just run: 
+  When finished, in order to stop the standalone cluster, you can run: 
 
   `./spark/spark-3.1.1-bin-hadoop3.2/sbin/stop-all.sh`
 
