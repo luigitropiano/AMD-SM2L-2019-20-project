@@ -53,7 +53,8 @@ It is possible to start our project by choosing one of the 3 following ways:
 
   `~$ python3 ./start_experiment[1-5].py`
 
-  *Apache Spark local mode is a non-distributed single-JVM deployment mode, where Spark spawns all the execution components - driver, executor, backend, and master - in the same single JVM.* 
+  Apache Spark local mode is a non-distributed single-JVM deployment mode, where Spark spawns all the execution components - driver, executor, backend, and master - in the same single JVM.
+
   ***We do not recommend to execute the project using the local mode, as it seems to have a non optimal memory management.***
 
 - **Standalone mode**
