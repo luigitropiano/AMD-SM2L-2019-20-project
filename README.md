@@ -57,7 +57,7 @@ It is possible to start our project by choosing one of the 3 following ways:
 
 - **Standalone mode**
 
-  To start the prject using the Apache Spark standalone mode, instead, run:
+  To start the project using the Apache Spark standalone mode, instead, run:
 
   `~$ ./spark_standalone_mode.sh && ./spark/spark-3.1.1-bin-hadoop3.2/sbin/start-all.sh`
 
