@@ -66,7 +66,9 @@ It is possible to start our project by choosing one of the 3 following ways:
   This will start two different processes: one master process on port 7077, and an isolated worker process with 12 GB of ram and with 7 allocated cores. It will also create one executor running within the worker process with 9 GB of ram and 6 allocated cores.
   This has shown to be an effective setup on our 8 core / 16 threads machine with 16 GB of ram. 
   From our tests, the standalone mode was much more stable than the local mode.
-  When finished, to stop the standalone cluster, just run: 
+  
+  When finished, in order to stop the standalone cluster, just run: 
+
   `./spark/spark-3.1.1-bin-hadoop3.2/sbin/stop-all.sh`
 
   It is possible to allocate a different amount of resources by editing the spark-env.sh file and re-creating the standalone cluster.
@@ -74,5 +76,7 @@ It is possible to start our project by choosing one of the 3 following ways:
 - **Existing cluster**
 
   If you already have a working Apache Spark setup and would like to submit our code to your cluster, you can pass the hostname and the port of your Master process as shown in the following command:
+  
   `~$ python3 ./start_experiment[1-5].py -H <hostname> -P <port>`
+  
   If not specified, `<port>` will default to `7077`
