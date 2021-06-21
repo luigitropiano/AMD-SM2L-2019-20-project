@@ -45,11 +45,17 @@ commands:
 
 `~$ pip install -r requirements.txt`
 
+It is possible to start our project with 3 differents ways:
+
+- Local mode
+
 To start the project using the Apache Spark local mode, just run
 
 `~$ python3 ./start_experiment[1-5].py`
 
 Apache Spark local mode is a non-distributed single-JVM deployment mode, where Spark spawns all the execution components - driver, executor, backend, and master - in the same single JVM. We do not reccomend to execute the project using the local mode, as it seems to have a non optimal memory management.
+
+- Standalone mode
 
 To start the prject using the Apache Spark standalone mode, instead, run:
 
@@ -66,6 +72,7 @@ When finished, to stop the standalone cluster, just run:
 
 It is possible to allocate a different amount of resources by editing the spark-env.sh file and re-creating the standalone cluster.
 
+- Existing cluster
 
 If you already have a working Apache Spark setup and would like to submit our
 code to your cluster, you can pass the hostname and the port of your Master
