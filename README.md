@@ -45,7 +45,7 @@ commands:
 
 `~$ pip install -r requirements.txt`
 
-It is possible to start our project with 3 differents ways:
+It is possible to start our project by choosing one of the 3 following ways:
 
 - **Local mode**
 
