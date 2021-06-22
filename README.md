@@ -45,14 +45,43 @@ commands:
 
 `~$ pip install -r requirements.txt`
 
-`~$ python3 ./start_experiment[1-5].py`
+It is possible to start our project by choosing one of the 3 following ways:
 
-This will start the project using the Apache Spark local mode, which is a non-distributed single-JVM deployment mode, where Spark spawns all the execution components - driver, executor, backend, and master - in the same single JVM.
+- **Local mode**
 
-If you already have a working Apache Spark setup and would like to submit our
-code to your cluster, you can pass the hostname and the port of your Master
-process as shown in the following command:
+  To start the project using the Apache Spark local mode, just run
 
-`~$ python3 ./start_experiment[1-5].py -H <hostname> -P <port>`
+  `~$ python3 ./start_experiment[1-5].py`
 
-If not specified, `<port>` will default to `7077`
+  Apache Spark local mode is a non-distributed single-JVM deployment mode, where Spark spawns all the execution components - driver, executor, backend, and master - in the same single JVM.
+
+  ***We do not recommend to execute the project using the local mode, as it seems to have a non optimal memory management.***
+
+- **Standalone mode**
+
+  To start the project using the Apache Spark standalone mode, instead, run:
+
+  `~$ ./spark_standalone_mode.sh && ./spark/spark-3.1.1-bin-hadoop3.2/sbin/start-all.sh`
+
+  `~$ python3 ./start_experiment[1-5].py -H 127.0.1.1`
+
+
+  This will start two different processes: one master process on port 7077, and an isolated worker process with 12 GB of ram and with 7 allocated cores. It will also create one executor running within the worker process with 9 GB of ram and 6 allocated cores.
+  This has shown to be an effective setup on our 8 core / 16 threads machine with 16 GB of ram. 
+  From our tests, the standalone mode was much more stable than the local mode.
+
+  ***In order to allow the worker and the master processes to comunicate, OpenSSH must be installed on the system and an SSH server must be running on the machine (by default listening on port 22)***
+  
+  When finished, in order to stop the standalone cluster, you can run: 
+
+  `./spark/spark-3.1.1-bin-hadoop3.2/sbin/stop-all.sh`
+
+  It is possible to allocate a different amount of resources by editing the `spark-env.sh` file and re-creating the standalone cluster.
+
+- **Existing cluster**
+
+  If you already have a working Apache Spark setup and would like to submit our code to your cluster, you can pass the hostname and the port of your Master process as shown in the following command:
+  
+  `~$ python3 ./start_experiment[1-5].py -H <hostname> -P <port>`
+  
+  If not specified, `<port>` will default to `7077`
